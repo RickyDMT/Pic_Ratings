@@ -1,7 +1,7 @@
 function PicRatings(varargin)
 % Rate all images, choose top X pics
 
-global wRect w XCENTER rects mids
+global wRect w XCENTER rects mids COLORS KEYS
 
 prompt={'SUBJECT ID'};
 defAns={'4444'};
@@ -10,8 +10,34 @@ answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
 
+COLORS = struct;
+COLORS.BLACK = [0 0 0];
+COLORS.WHITE = [255 255 255];
+COLORS.RED = [255 0 0];
+COLORS.BLUE = [0 0 255];
+COLORS.GREEN = [0 255 0];
+COLORS.YELLOW = [255 255 0];
+COLORS.rect = COLORS.GREEN;
+
+KbName('UnifyKeyNames');
+
+KEYS.LEFT=left;
+KEYS.RIGHT=right;
+KEYS.ONE= KbName('1!');
+KEYS.TWO= KbName('2@');
+KEYS.THREE= KbName('3#');
+KEYS.FOUR= KbName('4$');
+KEYS.FIVE= KbName('5%');
+KEYS.SIX= KbName('6^');
+KEYS.SEVEN= KbName('7&');
+KEYS.EIGHT= KbName('8*');
+KEYS.NINE= KbName('9(');
+KEYS.TEN= KbName('0)');
+
+
 %This and all tasks should just search for the specific images folder
-cd('/Users/canelab/Documents/StudyTasks/IMAGES_ORI_TASKS');
+%cd('/Users/canelab/Documents/StudyTasks/IMAGES_ORI_TASKS');
+
 
 PICS =struct;
 % if COND == 1;                   %Condtion = 1 is food. 
@@ -30,10 +56,54 @@ pictype = [ones(1,length(PICS.in.go)) zeros(1,length(PICS.in.no))];
 picpic = [piclist; pictype]';
 picpic = picpic(randperm(size(picpic,1)),:);
 
-ratings = zeros(length(picpic),2);
+%ratings = zeros(length(picpic),2);
+PicRating = struct('filename',cell(length(picpic),1),'Rate_App',0,'Rate2',0);
 
 [rects,mids] = DrawRectsGrid();
 
+%%
+%change this to 0 to fill whole screen
+DEBUG=0;
+
+%set up the screen and dimensions
+
+%list all the screens, then just pick the last one in the list (if you have
+%only 1 monitor, then it just chooses that one)
+Screen('Preference', 'SkipSyncTests', 1);
+
+screenNumber=max(Screen('Screens'));
+
+if DEBUG==1;
+    %create a rect for the screen
+    winRect=[0 0 640 480];
+    %establish the center points
+    XCENTER=320;
+    YCENTER=240;
+else
+    %change screen resolution
+%     Screen('Resolution',0,1024,768,[],32);
+    
+    %this gives the x and y dimensions of our screen, in pixels.
+    [swidth, sheight] = Screen('WindowSize', screenNumber);
+    XCENTER=fix(swidth/2);
+    YCENTER=fix(sheight/2);
+    %when you leave winRect blank, it just fills the whole screen
+    winRect=[];
+end
+
+%open a window on that monitor. 32 refers to 32 bit color depth (millions of
+%colors), winRect will either be a 1024x768 box, or the whole screen. The
+%function returns a window "w", and a rect that represents the whole
+%screen. 
+[w, wRect]=Screen('OpenWindow', screenNumber, 0,winRect,32,2);
+
+%%
+%you can set the font sizes and styles here
+Screen('TextFont', w, 'Arial');
+%Screen('TextStyle', w, 1);
+Screen('TextSize',w,35);
+
+%%
 for x = 1:length(picpic);
     switch picpic
         case {1}
@@ -43,9 +113,38 @@ for x = 1:length(picpic);
     end
     tpx = Screen('MakeTexture',w,tp);
     
+    for q = 1:2;
+        verbage = {'How appetizing is this food?'; 'How much do you crave this food?'};
+        
+        Screen('DrawTexture',w,tpx);
+        drawRatings([],w);
+        DrawFormattedText(w,verbage{q},'center','center',COLORS.BLUE);
+        Screen('Flip',w);
+        
+        while 1
+            [keyisdown, ~, keycode] = KbCheck();
+            if (keyisdown==1 && (keycode(KEYS.ONE) || keycode(KEYS.TWO) || keycode(KEYS.THREE) || keycode(KEYS.FOUR)))
+                
+                Screen('TextSize',w,35);
+                Screen('DrawTexture',w,tpx);
+                drawRatings(keycode,w);
+                DrawFormattedText(w,verbage{q},'center','center',COLORS.BLUE);
+                Screen('Flip',w);
+                WaitSecs(.25);
+                break;
+            end
+        end
+        %Record response here.
+        PicRating(x).name = [];
+        if q == 1;
+            PicRating(x).Rate_App = [];
+        else
+            PicRating(x).Rate2 = [];
+        end
+    end
+    
     
 end
-
 
 
 
@@ -62,14 +161,15 @@ global wRect XCENTER
 %of screen is determined. Then, images are 1/4th the side of that square
 %(minus the 3 x the gap between images.
 
+num_rects = 10;                 %How many rects?
 xlen = wRect(3)*.9;           %Make area covering about 90% of vertical dimension of screen.
-gap = 10;                       %Gap size between each image
-square_side = fix((xlen - 8*gap)/9); %Size of rect depends on size of screen.
+gap = 10;                       %Gap size between each rect
+square_side = fix((xlen - (num_rects-1)*gap)/num_rects); %Size of rect depends on size of screen.
 
 squart_x = XCENTER-(xlen/2);
 squart_y = wRect(4)*.8;         %Rects start @~80% down screen.
 
-rects = zeros(4,9);
+rects = zeros(4,10);
 
 % for row = 1:DIMS.grid_row;
     for col = 1:9;
@@ -84,11 +184,12 @@ mids = [rects(1,:)+square_side/2; rects(2,:)+square_side/2];
 
 end
 
+%%
 function drawRatings(varargin)
 
 global w KEYS COLORS wRect rects mids
 
-colors=repmat(COLORS.WHITE',1,9);
+colors=repmat(COLORS.WHITE',1,10);
 % rects=horzcat(allRects.rate1rect',allRects.rate2rect',allRects.rate3rect',allRects.rate4rect');
 
 %Needs to feed in "code" from KbCheck, to show which key was chosen.
@@ -118,8 +219,10 @@ if nargin >= 1 && ~isempty(varargin{1})
             choice=7;
         case {KEYS.EIGHT}
             choice=8;
-        case {KEYS.NIVE}
+        case {KEYS.NINE}
             choice=9;
+        case {KEYS.TEN}
+            choise = 10;
     end
     
     if exist('choice','var')
@@ -158,8 +261,8 @@ Screen('FrameRect',window,colors,rects,1);
 % Screen('FrameRect',w2,colors,rects,1);
 
 
-%draw the text (1-4)
-for n = 1:9;
+%draw the text (1-10)
+for n = 1:10;
     numnum = sprintf('%d',n);
     CenterTextOnPoint(window,numnum,mids(1,n),mids(2,n),colors(:,1));
 end
