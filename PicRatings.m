@@ -21,8 +21,9 @@ COLORS.rect = COLORS.GREEN;
 
 KbName('UnifyKeyNames');
 
-KEYS.LEFT=left;
-KEYS.RIGHT=right;
+KEYS = struct;
+% KEYS.LEFT=KbName('leftarrow');
+% KEYS.RIGHT=KbName('rightarrow');
 KEYS.ONE= KbName('1!');
 KEYS.TWO= KbName('2@');
 KEYS.THREE= KbName('3#');
@@ -33,7 +34,7 @@ KEYS.SEVEN= KbName('7&');
 KEYS.EIGHT= KbName('8*');
 KEYS.NINE= KbName('9(');
 KEYS.TEN= KbName('0)');
-
+KEYS.all = KEYS.ONE:KEYS.TEN;
 
 %This and all tasks should just search for the specific images folder
 %cd('/Users/canelab/Documents/StudyTasks/IMAGES_ORI_TASKS');
@@ -57,7 +58,7 @@ picpic = [piclist; pictype]';
 picpic = picpic(randperm(size(picpic,1)),:);
 
 %ratings = zeros(length(picpic),2);
-PicRating = struct('filename',cell(length(picpic),1),'Rate_App',0,'Rate2',0);
+PicRating = struct('filename',cell(length(picpic),1),'Rate_App',0,'Rate_Crave',0);
 
 [rects,mids] = DrawRectsGrid();
 
@@ -105,6 +106,7 @@ Screen('TextSize',w,35);
 
 %%
 for x = 1:length(picpic);
+
     switch picpic
         case {1}
             tp = imfield(getfield(PICS,'in','go',{picpic(x,1)},'name'));
@@ -123,8 +125,9 @@ for x = 1:length(picpic);
         
         while 1
             [keyisdown, ~, keycode] = KbCheck();
-            if (keyisdown==1 && (keycode(KEYS.ONE) || keycode(KEYS.TWO) || keycode(KEYS.THREE) || keycode(KEYS.FOUR)))
-                
+            if (keyisdown==1 && any(keycode(KEYS.all)))
+                rating = KbName(find(keycode));
+                rating = str2num(rating(1));
                 Screen('TextSize',w,35);
                 Screen('DrawTexture',w,tpx);
                 drawRatings(keycode,w);
@@ -137,16 +140,50 @@ for x = 1:length(picpic);
         %Record response here.
         PicRating(x).name = [];
         if q == 1;
-            PicRating(x).Rate_App = [];
-        else
-            PicRating(x).Rate2 = [];
+            PicRating(x).Rate_App = rating;
+        elseif q == 2;
+            PicRating(x).Rate_Crave = rating;
         end
     end
     
     
 end
 
+%% Sort & Save List of Foods.
+%Sort by top appetizing ratings for each food.
+[~,rate_app_index] = sort([PicRating.Rate_App],'descend');
+sorted_img_list = {PicRating(rate_app_index).names};
+savefile
 
+%Export SST to text and save with subject number.
+%find the mfilesdir by figuring out where Veling_SST.m is kept
+[mfilesdir,~,~] = fileparts(which('Veling_SST.m'));
+
+%get the parent directory, which is one level up from mfilesdir
+%[parentdir,~,~] =fileparts(mfilesdir);
+savedir = [mfilesdir filesep 'Results' filesep];
+
+if exist(savedir,'dir') == 0;
+    % If savedir (the directory to save files in) does not exist, make it.
+    mkdir(savedir);
+end
+    
+try
+    
+    %create the paths to the other directories, starting from the parent
+    %directory
+    % savedir = [parentdir filesep 'Results\proDMT\'];
+    %         savedir = [mfilesdir filesep 'Results' filesep];
+    
+    save([savedir 'SST_' num2str(ID) '_' num2str(SESS) '.mat'],'SST');
+    
+catch
+    error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
+end
+
+DrawFormattedText(w,'Thank you for participating\n in this part of the study!','center','center',COLORS.WHITE);
+Screen('Flip', w);
+KbWait();
 
 
 end
