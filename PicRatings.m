@@ -1,14 +1,22 @@
 function PicRatings(varargin)
-% Rate all images, choose top X pics
+% Rate all images, choose top X picsn    
 
-global wRect w XCENTER rects mids COLORS KEYS
+global wRect w XCENTER rects mids COLORS KEYS PicRating
 
-prompt={'SUBJECT ID'};
-defAns={'4444'};
+% prompt={'SUBJECT ID'};
+% defAns={'4444'};
+% 
+% answer=inputdlg(prompt,'Please input subject info',1,defAns);
+% 
+% ID=str2double(answer{1});
 
-answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
-ID=str2double(answer{1});
+
+%temp
+ID = 001;
+
+[mfilesdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
+cd(mfilesdir);
 
 COLORS = struct;
 COLORS.BLACK = [0 0 0];
@@ -36,14 +44,11 @@ KEYS.NINE= KbName('9(');
 KEYS.TEN= KbName('0)');
 KEYS.all = KEYS.ONE:KEYS.TEN;
 
-%This and all tasks should just search for the specific images folder
-%cd('/Users/canelab/Documents/StudyTasks/IMAGES_ORI_TASKS');
-
 
 PICS =struct;
 % if COND == 1;                   %Condtion = 1 is food. 
-    PICS.in.go = dir('good*.jpg');
-    PICS.in.no = dir('*bad*.jpg');
+    PICS.in.go = dir('Healthy*');
+    PICS.in.no = dir('Unhealthy*');
 %     PICS.in.neut = dir('*water*.jpg');    %Don't need ratings on neutral images
 % elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
 %     PICS.in.go = dir('*bird*.jpg');
@@ -51,16 +56,28 @@ PICS =struct;
 %     PICS.in.neut = dir('*mam*.jpg');
 % end
 
-piclist = [1:length(PICS.in.go) 1:length(PICS.in.no)];
-pictype = [ones(1,length(PICS.in.go)) zeros(1,length(PICS.in.no))];
+% piclist = [1:length(PICS.in.go) 1:length(PICS.in.no)];
+% pictype = [ones(1,length(PICS.in.go)) zeros(1,length(PICS.in.no))];
 
-picpic = [piclist; pictype]';
-picpic = picpic(randperm(size(picpic,1)),:);
+% picpic = [piclist; pictype]';
+% picpic = picpic(randperm(size(picpic,1)),:);
+names_go = {PICS.in.go.name}';
+names_go = names_go(randperm(size(names_go,1)),:);
+
+names_no = {PICS.in.no.name}';
+names_no = names_no(randperm(size(names_no,1)),:);
 
 %ratings = zeros(length(picpic),2);
-PicRating = struct('filename',cell(length(picpic),1),'Rate_App',0,'Rate_Crave',0);
+PicRating = struct;
+PicRating.go = struct('filename',names_go,'Rate_App',0); %,'Rate_Crave',0);
+PicRating.no = struct('filename',names_no,'Rate_App',0); %,'Rate_Crave',0);
 
-[rects,mids] = DrawRectsGrid();
+%Check if pictures are present. If not, throw error.
+%Could be updated to search computer to look for pics...
+if isempty(PicRating.go | PicRating.no)
+    error('Could not find pics. Please ensure pictures are found in a folder named MasterPics within the folder containing the .m task file.');
+end
+commandwindow;
 
 %%
 %change this to 0 to fill whole screen
@@ -104,87 +121,133 @@ Screen('TextFont', w, 'Arial');
 %Screen('TextStyle', w, 1);
 Screen('TextSize',w,35);
 
-%%
-for x = 1:length(picpic);
+%% Dat Grid
+[rects,mids] = DrawRectsGrid();
+verbage = 'How appetizing is this food?'; %'How much do you crave this food?'};
 
-    switch picpic
-        case {1}
-            tp = imfield(getfield(PICS,'in','go',{picpic(x,1)},'name'));
-        case {0}
-            tp = imfield(getfield(PICS,'in','no',{picpic(x,1)},'name'));
-    end
-    tpx = Screen('MakeTexture',w,tp);
-    
-    for q = 1:2;
-        verbage = {'How appetizing is this food?'; 'How much do you crave this food?'};
+%%
+for x = 1:20:15 %length(PicRating.go);  %UPDATE TO LENGTH OF GO PICS
+    for y = 0:19;
+        actualrow = x+y;
+        if actualrow > length(PicRating.go);
+            return
+        end
         
-        Screen('DrawTexture',w,tpx);
-        drawRatings([],w);
-        DrawFormattedText(w,verbage{q},'center','center',COLORS.BLUE);
-        Screen('Flip',w);
+        tp = imread(getfield(PicRating,'go',{actualrow},'filename'));
+        tpx = Screen('MakeTexture',w,tp);
         
-        while 1
-            [keyisdown, ~, keycode] = KbCheck();
-            if (keyisdown==1 && any(keycode(KEYS.all)))
-                rating = KbName(find(keycode));
-                rating = str2num(rating(1));
-                Screen('TextSize',w,35);
-                Screen('DrawTexture',w,tpx);
-                drawRatings(keycode,w);
-                DrawFormattedText(w,verbage{q},'center','center',COLORS.BLUE);
-                Screen('Flip',w);
-                WaitSecs(.25);
-                break;
+%         for q = 1:2;            
+            Screen('DrawTexture',w,tpx);
+            drawRatings([],w);
+            DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+            Screen('Flip',w);
+            
+            while 1
+                [keyisdown, ~, keycode] = KbCheck();
+                if (keyisdown==1 && any(keycode(KEYS.all)))
+                    rating = KbName(find(keycode));
+                    rating = str2double(rating(1));
+                    Screen('DrawTexture',w,tpx);
+                    drawRatings(keycode,w);
+                    DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+                    Screen('Flip',w);
+                    WaitSecs(.25);
+                    break;
+                end
             end
-        end
-        %Record response here.
-        PicRating(x).name = [];
-        if q == 1;
-            PicRating(x).Rate_App = rating;
-        elseif q == 2;
-            PicRating(x).Rate_Crave = rating;
-        end
+            %Record response here.
+%             if q == 1;
+                PicRating.go(actualrow).Rate_App = rating;
+%             elseif q == 2;
+%                 PicRating(actualrow).Rate_Crave = rating;
+%             end
+%         end
     end
+    %Take a break every 20 pics.
+    Screen('Flip',w);
+    DrawFormattedText(w,'Press any key when you are ready to continue','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait([],3);
     
-    
+end
+
+Screen('Flip',w);
+WaitSecs(.5);
+
+%Now the no-go foods.
+for x = 1:20:15 %length(PicRating.no);  %UPDATE TO LENGTH OF NO GO PICS
+    for y = 0:19;
+        actualrow = x+y;
+        if actualrow > length(PicRating.no);
+            return
+        end
+        tp = imread(getfield(PicRating,'no',{actualrow},'filename'));
+        tpx = Screen('MakeTexture',w,tp);
+        
+%         for q = 1:2;
+            
+            Screen('DrawTexture',w,tpx);
+            drawRatings([],w);
+            DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+            Screen('Flip',w);
+            
+            while 1
+                [keyisdown, ~, keycode] = KbCheck();
+                if (keyisdown==1 && any(keycode(KEYS.all)))
+                    rating = KbName(find(keycode));
+                    rating = str2double(rating(1));
+                    Screen('DrawTexture',w,tpx);
+                    drawRatings(keycode,w);
+                    DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+                    Screen('Flip',w);
+                    WaitSecs(.25);
+                    break;
+                end
+            end
+            %Record response here.
+%             if q == 1;
+                PicRating.no(actualrow).Rate_App = rating;
+%             elseif q == 2;
+%                 PicRating(actualrow).Rate_Crave = rating;
+%             end
+%         end
+    end
+    %Take a break every 20 pics.
+    Screen('Flip',w);
+    DrawFormattedText(w,'Press any key when you are ready to continue','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait([],3);
 end
 
 %% Sort & Save List of Foods.
-%Sort by top appetizing ratings for each food.
-[~,rate_app_index] = sort([PicRating.Rate_App],'descend');
-sorted_img_list = {PicRating(rate_app_index).names};
-savefile
+%Sort by top appetizing ratings for each set.
+fields = {'name' 'rating'};
+presort = struct2cell(PicRating.go)';
+postsort = sortrows(presort,-2);    %Sort descending by column 2
+PicRating.go = cell2struct(postsort,fields,2);
 
-%Export SST to text and save with subject number.
-%find the mfilesdir by figuring out where Veling_SST.m is kept
-[mfilesdir,~,~] = fileparts(which('Veling_SST.m'));
+presortn = struct2cell(PicRating.no)';
+postsortn = sortrows(presortn,-2);
+PicRating.no = cell2struct(postsortn,fields,2);
 
-%get the parent directory, which is one level up from mfilesdir
-%[parentdir,~,~] =fileparts(mfilesdir);
-savedir = [mfilesdir filesep 'Results' filesep];
 
-if exist(savedir,'dir') == 0;
-    % If savedir (the directory to save files in) does not exist, make it.
+% [mfilesdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
+% [parentdir,~,~] =fileparts(mfilesdir);
+savedir = [mfilesdir filesep 'SavingsRatings'];
+
+if exist(savedir,'dir') ==0;
     mkdir(savedir);
 end
-    
+savefilename = sprintf('PicRate_%03d.mat',ID);
+savefile = fullfile(savedir,savefilename);
+
 try
-    
-    %create the paths to the other directories, starting from the parent
-    %directory
-    % savedir = [parentdir filesep 'Results\proDMT\'];
-    %         savedir = [mfilesdir filesep 'Results' filesep];
-    
-    save([savedir 'SST_' num2str(ID) '_' num2str(SESS) '.mat'],'SST');
-    
+    save(savefile,'PicRating'); 
 catch
     error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
 end
 
-DrawFormattedText(w,'Thank you for participating\n in this part of the study!','center','center',COLORS.WHITE);
-Screen('Flip', w);
-KbWait();
-
+sca
 
 end
 
@@ -209,7 +272,7 @@ squart_y = wRect(4)*.8;         %Rects start @~80% down screen.
 rects = zeros(4,10);
 
 % for row = 1:DIMS.grid_row;
-    for col = 1:9;
+    for col = 1:10;
 %         currr = ((row-1)*DIMS.grid_col)+col;
         rects(1,col)= squart_x + (col-1)*(square_side+gap);
         rects(2,col)= squart_y;
@@ -217,16 +280,16 @@ rects = zeros(4,10);
         rects(4,col)= squart_y + square_side;
     end
 % end
-mids = [rects(1,:)+square_side/2; rects(2,:)+square_side/2];
+mids = [rects(1,:)+square_side/2; rects(2,:)+square_side/2+5];
 
 end
 
 %%
 function drawRatings(varargin)
 
-global w KEYS COLORS wRect rects mids
+global w KEYS COLORS rects mids
 
-colors=repmat(COLORS.WHITE',1,10);
+colors=repmat(COLORS.BLUE',1,10);
 % rects=horzcat(allRects.rate1rect',allRects.rate2rect',allRects.rate3rect',allRects.rate4rect');
 
 %Needs to feed in "code" from KbCheck, to show which key was chosen.
@@ -259,7 +322,7 @@ if nargin >= 1 && ~isempty(varargin{1})
         case {KEYS.NINE}
             choice=9;
         case {KEYS.TEN}
-            choise = 10;
+            choice = 10;
     end
     
     if exist('choice','var')
@@ -282,8 +345,8 @@ end
    
 
 Screen('TextFont', window, 'Arial');
-Screen('TextStyle', window, 1)
-oldSize = Screen('TextSize',window,45);
+Screen('TextStyle', window, 1);
+oldSize = Screen('TextSize',window,35);
 
 % Screen('TextFont', w2, 'Arial');
 % Screen('TextStyle', w2, 1)
@@ -301,7 +364,7 @@ Screen('FrameRect',window,colors,rects,1);
 %draw the text (1-10)
 for n = 1:10;
     numnum = sprintf('%d',n);
-    CenterTextOnPoint(window,numnum,mids(1,n),mids(2,n),colors(:,1));
+    CenterTextOnPoint(window,numnum,mids(1,n),mids(2,n),COLORS.BLUE);
 end
 
 
