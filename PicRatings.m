@@ -3,17 +3,17 @@ function PicRatings(varargin)
 
 global wRect w XCENTER rects mids COLORS KEYS PicRating
 
-% prompt={'SUBJECT ID'};
-% defAns={'4444'};
-% 
-% answer=inputdlg(prompt,'Please input subject info',1,defAns);
-% 
-% ID=str2double(answer{1});
+prompt={'SUBJECT ID'};
+defAns={'4444'};
+
+answer=inputdlg(prompt,'Please input subject info',1,defAns);
+
+ID=str2double(answer{1});
 
 
 
-%temp
-ID = 001;
+% %temp
+% ID = 001;
 
 [mfilesdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
 cd(mfilesdir);
@@ -42,7 +42,8 @@ KEYS.SEVEN= KbName('7&');
 KEYS.EIGHT= KbName('8*');
 KEYS.NINE= KbName('9(');
 KEYS.TEN= KbName('0)');
-KEYS.all = KEYS.ONE:KEYS.TEN;
+rangetest = cell2mat(struct2cell(KEYS));
+KEYS.all = min(rangetest):max(rangetest);
 
 
 PICS =struct;
@@ -66,22 +67,24 @@ names_go = names_go(randperm(size(names_go,1)),:);
 
 names_no = {PICS.in.no.name}';
 names_no = names_no(randperm(size(names_no,1)),:);
+% names = [names_go; names_no];
 
 %ratings = zeros(length(picpic),2);
 PicRating = struct;
 PicRating.go = struct('filename',names_go,'Rate_App',0); %,'Rate_Crave',0);
 PicRating.no = struct('filename',names_no,'Rate_App',0); %,'Rate_Crave',0);
+pictype = BalanceTrials((length(names_go) + length(names_no)),1,[1 2]);     %1 = lo cal; 2 = hi cal
 
 %Check if pictures are present. If not, throw error.
 %Could be updated to search computer to look for pics...
-if isempty(PicRating.go | PicRating.no)
-    error('Could not find pics. Please ensure pictures are found in a folder named MasterPics within the folder containing the .m task file.');
-end
+% if isempty(PicRating.go | PicRating.no)
+%     error('Could not find pics. Please ensure pictures are found in a folder named MasterPics within the folder containing the .m task file.');
+% end
 commandwindow;
 
 %%
 %change this to 0 to fill whole screen
-DEBUG=0;
+DEBUG=1;
 
 %set up the screen and dimensions
 
@@ -125,15 +128,38 @@ Screen('TextSize',w,35);
 [rects,mids] = DrawRectsGrid();
 verbage = 'How appetizing is this food?'; %'How much do you crave this food?'};
 
-%%
-for x = 1:20:15 %length(PicRating.go);  %UPDATE TO LENGTH OF GO PICS
+%% Intro
+
+DrawFormattedText(w,'First, we are going to show you some pictures of food and have you rate how appetizing each food is.\n\n You will use a scale from 1 to 10, where 1 is the LEAST appetizing food you have ever eaten and 10 is the MOST appetizing food you have ever eaten.\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
+Screen('Flip',w);
+KbWait([],3);
+
+DrawFormattedText(w,'You will use the numbers along the top of the keyboard to select your rating. \n\nPlease note that you will use the "0" key to select the number 10 (the most appetizing food you have ever eaten).\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
+Screen('Flip',w);
+KbWait([],3);
+
+DrawFormattedText(w,'The rating task will now begin.\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
+Screen('Flip',w);
+KbWait([],3);
+WaitSecs(1);
+go_row = 0;
+no_row = 0;
+for x = 1:20:length(pictype);  %UPDATE TO LENGTH OF GO PICS
     for y = 0:19;
-        actualrow = x+y;
-        if actualrow > length(PicRating.go);
-            return
+        xy = x+y;
+        
+        if pictype(xy) == 1;
+            go_row = go_row + 1;
+            tp = imread(getfield(PicRating,'go',{go_row},'filename'));
+        elseif pictype(xy) == 2;
+            no_row = no_row + 1;
+            tp = imread(getfield(PicRating,'no',{no_row},'filename'));            
         end
         
-        tp = imread(getfield(PicRating,'go',{actualrow},'filename'));
+%         if actualrow > length(PicRating.go);
+%             return
+%         end
+        
         tpx = Screen('MakeTexture',w,tp);
         
 %         for q = 1:2;            
@@ -147,6 +173,7 @@ for x = 1:20:15 %length(PicRating.go);  %UPDATE TO LENGTH OF GO PICS
                 if (keyisdown==1 && any(keycode(KEYS.all)))
                     rating = KbName(find(keycode));
                     rating = str2double(rating(1));
+                    
                     Screen('DrawTexture',w,tpx);
                     drawRatings(keycode,w);
                     DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
@@ -157,7 +184,18 @@ for x = 1:20:15 %length(PicRating.go);  %UPDATE TO LENGTH OF GO PICS
             end
             %Record response here.
 %             if q == 1;
-                PicRating.go(actualrow).Rate_App = rating;
+            if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
+                rating = 10;
+            end
+            
+            if pictype(xy) == 1;    
+                PicRating.go(go_row).Rate_App = rating;
+                
+            elseif pictype(xy) == 2;
+                PicRating.no(no_row).Rate_App = rating;
+               
+            end
+            
 %             elseif q == 2;
 %                 PicRating(actualrow).Rate_Crave = rating;
 %             end
@@ -174,50 +212,51 @@ end
 Screen('Flip',w);
 WaitSecs(.5);
 
-%Now the no-go foods.
-for x = 1:20:15 %length(PicRating.no);  %UPDATE TO LENGTH OF NO GO PICS
-    for y = 0:19;
-        actualrow = x+y;
-        if actualrow > length(PicRating.no);
-            return
-        end
-        tp = imread(getfield(PicRating,'no',{actualrow},'filename'));
-        tpx = Screen('MakeTexture',w,tp);
-        
-%         for q = 1:2;
-            
-            Screen('DrawTexture',w,tpx);
-            drawRatings([],w);
-            DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
-            Screen('Flip',w);
-            
-            while 1
-                [keyisdown, ~, keycode] = KbCheck();
-                if (keyisdown==1 && any(keycode(KEYS.all)))
-                    rating = KbName(find(keycode));
-                    rating = str2double(rating(1));
-                    Screen('DrawTexture',w,tpx);
-                    drawRatings(keycode,w);
-                    DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
-                    Screen('Flip',w);
-                    WaitSecs(.25);
-                    break;
-                end
-            end
-            %Record response here.
-%             if q == 1;
-                PicRating.no(actualrow).Rate_App = rating;
-%             elseif q == 2;
-%                 PicRating(actualrow).Rate_Crave = rating;
-%             end
+% %Now the no-go foods.
+% for x = 1:20:length(PicRating.no);  %UPDATE TO LENGTH OF NO GO PICS
+%     for y = 0:19;
+%         actualrow = x+y;
+%         if actualrow > length(PicRating.no);
+%             return
 %         end
-    end
-    %Take a break every 20 pics.
-    Screen('Flip',w);
-    DrawFormattedText(w,'Press any key when you are ready to continue','center','center',COLORS.WHITE);
-    Screen('Flip',w);
-    KbWait([],3);
-end
+%         tp = imread(getfield(PicRating,'no',{actualrow},'filename'));
+%         tpx = Screen('MakeTexture',w,tp);
+%         
+% %         for q = 1:2;
+%             
+%             Screen('DrawTexture',w,tpx);
+%             drawRatings([],w);
+%             DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+%             Screen('Flip',w);
+% 
+%             
+%             while 1
+%                 [keyisdown, ~, keycode] = KbCheck();
+%                 if (keyisdown==1 && any(keycode(KEYS.all)))
+%                     rating = KbName(find(keycode));
+%                     rating = str2double(rating(1));
+%                     Screen('DrawTexture',w,tpx);
+%                     drawRatings(keycode,w);
+%                     DrawFormattedText(w,verbage,'center',(wRect(4)*.7),COLORS.BLUE);
+%                     Screen('Flip',w);
+%                     WaitSecs(.25);
+%                     break;
+%                 end
+%             end
+%             %Record response here.
+% %             if q == 1;
+%                 PicRating.no(actualrow).Rate_App = rating;
+% %             elseif q == 2;
+% %                 PicRating(actualrow).Rate_Crave = rating;
+% %             end
+% %         end
+%     end
+%     %Take a break every 20 pics.
+%     Screen('Flip',w);
+%     DrawFormattedText(w,'Press any key when you are ready to continue','center','center',COLORS.WHITE);
+%     Screen('Flip',w);
+%     KbWait([],3);
+% end
 
 %% Sort & Save List of Foods.
 %Sort by top appetizing ratings for each set.
@@ -238,7 +277,7 @@ savedir = [mfilesdir filesep 'SavingsRatings'];
 if exist(savedir,'dir') ==0;
     mkdir(savedir);
 end
-savefilename = sprintf('PicRate_%03d.mat',ID);
+savefilename = sprintf('PicRate_%d.mat',ID);
 savefile = fullfile(savedir,savefilename);
 
 try
