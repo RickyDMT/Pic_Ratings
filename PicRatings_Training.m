@@ -1,14 +1,16 @@
-function PicRatings_U4ED(varargin)
+function PicRatings_Training(varargin)
 % Rate all images, choose top X picsn    
 
-global wRect w XCENTER rects mids COLORS KEYS PicRating_U4ED
+global wRect w XCENTER rects mids COLORS KEYS PicRating_ET
 
-prompt={'SUBJECT ID'};
-defAns={'4444'};
+prompt={'SUBJECT ID' 'fMRI? (1 = Y, 0 = N)'};
+defAns={'4444' '0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
+fmri = str2double(answer{2});
+
 
 
 [mfilesdir,~,~] = fileparts(which('PicRatings_U4ED.m'));
@@ -41,11 +43,15 @@ KEYS.NINE= KbName('9(');
 KEYS.TEN= KbName('0)');
 rangetest = cell2mat(struct2cell(KEYS));
 KEYS.all = min(rangetest):max(rangetest);
+KEYS.trigger = 52;
 
 
 PICS =struct;
-    PICS.in.Un = dir('Binge*');
+    %PICS.in.Un = dir('Binge*');
 
+    PICS.in.Un = dir('Unhealthy*');
+    PICS.in.H = dir('Healthy*');
+    
     if isempty(PICS.in.Un);
         error('Could not find pics! Make sure a folder exists called "Pics" with all the appropriate images contained therein.')
     end
@@ -54,9 +60,37 @@ PICS =struct;
     picnames = picnames(randperm(size(picnames,1)),:);
 
 
-PicRating_U4ED = struct('filename',picnames,'Rate_App',0); %,'Rate_Crave',0);
+jitter = BalanceTrials(length(picnames),1,[1 2 3]);
+
+PicRating_ET = struct('filename',picnames,'Rate_App',0,'Jitter',[],'FixOnset',[],'PicOnset',[],'RatingOnset',[],'RT',[]); %,'Rate_Crave',0);
+
+for hhh = 1:length(PicRating_ET);
+    
+    PicRating_ET(hhh).Jitter = jitter(hhh);
+end
 
 
+%% Keyboard stuff for fMRI...
+
+%list devices
+[keyboardIndices, productNames] = GetKeyboardIndices;
+
+isxkeys=strcmp(productNames,'Xkeys');
+
+xkeys=keyboardIndices(isxkeys);
+macbook = keyboardIndices(strcmp(productNames,'Apple Internal Keyboard / Trackpad'));
+
+%in case something goes wrong or the keyboard name isn?t exactly right
+if isempty(macbook)
+    macbook=-1;
+end
+
+%in case you?re not hooked up to the scanner, then just work off the keyboard
+if isempty(xkeys)
+    xkeys=macbook;
+end
+
+%%
 commandwindow;
 
 %%
@@ -115,30 +149,54 @@ DrawFormattedText(w,'You will use the numbers along the top of the keyboard to s
 Screen('Flip',w);
 KbWait([],3);
 
+%% fMRI synch w/trigger
+if fmri == 1;
+    DrawFormattedText(w,'Synching with fMRI: Waiting for trigger','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    
+    scan_sec = KbTriggerWait(KEYS.trigger,xkeys);
+else
+    scan_sec = GetSecs();
+end
+
+%%
 DrawFormattedText(w,'The rating task will now begin.\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
 Screen('Flip',w);
 KbWait([],3);
 WaitSecs(1);
 
 
-for x = 1:20:length(PicRating_U4ED);  %UPDATE TO LENGTH OF GO PICS
+for x = 1:20:length(PicRating_ET);  %UPDATE TO LENGTH OF GO PICS
     for y = 1:19;
         xy = x+y;
-        if xy > length(PicRating_U4ED)
+        if xy > length(PicRating_ET)
             break
         end
-
-        tp = imread(getfield(PicRating_U4ED,{xy},'filename'));            
+        
+        DrawFormattedText(w,'+','center','center',COLORS.WHITE);
+        fixon = Screen('Flip',w);
+        PicRating_ET(xy).FixOnset = fixon - scan_sec;
+        WaitSecs(PicRating_ET(xy).Jitter);
+        
+        tp = imread(getfield(PicRating_ET,{xy},'filename'));
         tpx = Screen('MakeTexture',w,tp);          
+        Screen('DrawTexture',w,tpx);
+        picon = Screen('Flip',w);
+        PicRating_ET(xy).PicOnset = picon - scan_sec;
+        WaitSecs(5);
+        
         Screen('DrawTexture',w,tpx);
         drawRatings([],w);
         DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
-        Screen('Flip',w);
+        rateon = Screen('Flip',w);
+        PicRating_ET(xy).RatingOnset = rateon - scan_sec;
             
         FlushEvents();
             while 1
-                [keyisdown, ~, keycode] = KbCheck();
+                [keyisdown, rt, keycode] = KbCheck();
                 if (keyisdown==1 && any(keycode(KEYS.all)))
+                    PicRating_ET(xy).RT = rt - rateon;
+                    
                     rating = KbName(find(keycode));
                     rating = str2double(rating(1));
                     
@@ -155,7 +213,7 @@ for x = 1:20:length(PicRating_U4ED);  %UPDATE TO LENGTH OF GO PICS
             if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
                 rating = 10;
             end
-           PicRating_U4ED(xy).Rate_App = rating;
+           PicRating_ET(xy).Rate_App = rating;
            Screen('Flip',w);
            FlushEvents();
            WaitSecs(.25);
@@ -174,10 +232,10 @@ WaitSecs(.5);
 
 %% Sort & Save List of Foods.
 %Sort by top appetizing ratings for each set.
-fields = {'name' 'rating'};
-presort = struct2cell(PicRating_U4ED)';
+fields = {'name' 'rating' 'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
+presort = struct2cell(PicRating_ET)';
 postsort = sortrows(presort,-2);    %Sort descending by column 2
-PicRating_U4ED = cell2struct(postsort,fields,2);
+PicRating_ET = cell2struct(postsort,fields,2);
 
 savedir = [mfilesdir filesep 'Results'];
 
@@ -185,7 +243,7 @@ savefilename = sprintf('PicRate_%d.mat',ID);
 savefile = fullfile(savedir,savefilename);
 
 try
-    save(savefile,'PicRating_U4ED'); 
+    save(savefile,'PicRating_ET'); 
 catch
     error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
 end

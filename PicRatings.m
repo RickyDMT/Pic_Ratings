@@ -272,12 +272,12 @@ PicRating.no = cell2struct(postsortn,fields,2);
 
 % [mfilesdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
 % [parentdir,~,~] =fileparts(mfilesdir);
-savedir = [mfilesdir filesep 'SavingsRatings'];
+savedir = [mfilesdir filesep 'Results'];
 
 if exist(savedir,'dir') ==0;
     mkdir(savedir);
 end
-savefilename = sprintf('PicRate_%d.mat',ID);
+savefilename = sprintf('PicRate_Training_%d.mat',ID);
 savefile = fullfile(savedir,savefilename);
 
 try
