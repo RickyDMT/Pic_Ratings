@@ -1,6 +1,8 @@
-function SimpleExposure(varargin)
+function SimpleExposure_Training(varargin)
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial pahandle
+
+%This is for food exposure!
 
 prompt={'SUBJECT ID' 'Condition' 'fMRI'};
 defAns={'4444' '1' '0'};
@@ -21,6 +23,7 @@ KEY = struct;
 KEY.rt = KbName('SPACE');
 KEY.left = KbName('c');
 KEY.right = KbName('m');
+KEY.trigger = KbName('''"');
 
 
 COLORS = struct;
@@ -40,13 +43,34 @@ STIM.trialdur = 5;
 STIM.jitter = [2 3 4];
 
 
+%% Keyboard stuff for fMRI...
+
+%list devices
+[keyboardIndices, productNames] = GetKeyboardIndices;
+
+isxkeys=strcmp(productNames,'Xkeys');
+
+xkeys=keyboardIndices(isxkeys);
+macbook = keyboardIndices(strcmp(productNames,'Apple Internal Keyboard / Trackpad'));
+
+%in case something goes wrong or the keyboard name isn?t exactly right
+if isempty(macbook)
+    macbook=-1;
+end
+
+%in case you?re not hooked up to the scanner, then just work off the keyboard
+if isempty(xkeys)
+    xkeys=macbook;
+end
+
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
-[mdir,~,~] = fileparts(which('SimpleExposure.m'));
+[mdir,~,~] = fileparts(which('SimpleExposure_Training.m'));
 
-[ratedir,~,~] = fileparts(which('PicRatings_U4ED.m'));
-picratefolder = fullfile(ratedir,'Results');
-imgdir = fullfile(ratedir,'Pics');
+% [ratedir,~,~] = fileparts(which('PicRatings_U4ED.m'));
+picratefolder = fullfile(mdir,'Ratings');   %xXX: Double check this is right folder!!!
+% imgdir = fullfile(ratedir,'Pics');
+imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';
 
 try
     cd(picratefolder)
@@ -55,12 +79,12 @@ catch
 end
 
 
-if COND ==1;
+if COND ==1;    %If EXP condition!
     filen = sprintf('PicRate_Training_%d.mat',ID);
     try
         p = open(filen);
     catch
-        warning('Could not find and/or open the U rating file.');
+        warning('Attemped to open file called "%s" for Subject #%d. Could not find and/or open this training rating file. Double check that you have typed in the subject number appropriately.',filen,ID);
         commandwindow;
         randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
         if randopics == 1
@@ -74,23 +98,19 @@ if COND ==1;
         end
         
     end
+    PICS.in.hi = struct('name',{p.PicRating.no(1:100).name}');
+    PICS.in.lo = struct('name',{p.PicRating.go(1:100).name}');
 else
     cd(imgdir)
     p = struct;
-    p.PicRating.no = dir('Unhealthy*');
-    p.PicRating.go = dir('Healthy*');
+    PICS.in.hi = dir('Unhealthy*');
+    PICS.in.lo = dir('Healthy*');
 end
 
     
 
 cd(imgdir);
- 
 
-
-PICS =struct;
-
-PICS.in.hi = struct('name',{p.PicRating.no(1:40).name}');
-PICS.in.lo = struct('name',{p.PicRating.go(1:40).name}');
 neutpics = dir('water*');
 
 %Check if pictures are present. If not, throw error.
@@ -102,17 +122,29 @@ end
 %% Fill in rest of pertinent info
 SimpExp = struct;
 
-%1 = food, 0 = water
-% pictype = [ones(length(PICS.in.hi),1); zeros(20,1)];
-pictype = [ones(40,1); repmat(2,40,1); zeros(20,1)];
 
-%Make long list of randomized #s to represent each pic
-% piclist = [randperm(length(PICS.in.hi))'; randperm(length(neutpics))'];
-piclist = [randperm(40)'; randperm(40)'; randperm(20)'];
+    %1 = hi cal food, 2 = low cal food, 0 = water
+    pictype = [ones(40,1); repmat(2,40,1); zeros(20,1)];
 
+if COND == 1    
+    %1 = in training tasks, 0 = not in training tasks
+    trainpic = [repmat([ones(20,1); zeros(20,1)],2,1); zeros(20,1)];
+    
+    %Make long list of randomized #s to represent each pic
+    %Need random 20 from top 80 pics + random ordering of next 20 pics
+    %Repeat for low cal food...
+    piclist = [randperm(80,20)'; (randperm(20)+80)'; randperm(80,20)'; (randperm(20)+80)'; randperm(length(neutpics),20)'];
+    
+else
+    %Otherwise, all pics are NOT in training tasks and are thus randomly
+    %selected from entire list of possible pics.
+    
+    trainpic = zeros(length(pictype),1);
+    piclist = [randperm(length(PICS.in.hi),40)'; randperm(length(PICS.in.lo),40)'; randperm(length(neutpics),20)'];
+end
 
 %Concatenate these into a long list of trial types.
-trial_types = [pictype piclist];
+trial_types = [pictype trainpic piclist];
 shuffled = trial_types(randperm(size(trial_types,1)),:);
 
 jitter = BalanceTrials(STIM.totes,1,STIM.jitter);
@@ -121,12 +153,13 @@ jitter = BalanceTrials(STIM.totes,1,STIM.jitter);
      for y = 1:STIM.trials;
          tc = (x-1)*STIM.trials + y;
          SimpExp.data(tc).pictype = shuffled(tc,1);
+         SimpExp.data(tc).training = shuffled(tc,2);
          if shuffled(tc,1) == 1
-            SimpExp.data(tc).picname = PICS.in.hi(shuffled(tc,2)).name;
+            SimpExp.data(tc).picname = PICS.in.hi(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 0
-             SimpExp.data(tc).picname = neutpics(shuffled(tc,2)).name;
+             SimpExp.data(tc).picname = neutpics(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 2;
-             SimpExp.data(tc).picname = PICS.in.lo(shuffled(tc,2)).name;
+             SimpExp.data(tc).picname = PICS.in.lo(shuffled(tc,3)).name;
          end
          SimpExp.data(tc).jitter = jitter(tc);
          SimpExp.data(tc).fix_onset = NaN;
@@ -135,6 +168,7 @@ jitter = BalanceTrials(STIM.totes,1,STIM.jitter);
  end
 
     SimpExp.info.ID = ID;
+    SimpExp.info.Condition = COND;
     SimpExp.info.date = sprintf('%s %2.0f:%02.0f',date,d(4),d(5));
     
 
@@ -186,14 +220,23 @@ Screen('TextSize',w,30);
 
 KbName('UnifyKeyNames');
 
-%% Where should pics go
-% STIM.framerect = [XCENTER-300; YCENTER-300; XCENTER+300; YCENTER+300];
-
 %% Initial screen
-% DrawFormattedText(w,'Welcome to the Dot-Probe Task.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
-% Screen('Flip',w);
-% KbWait();
+DrawFormattedText(w,'Imagine you''re eating this food or something...','center','center',COLORS.WHITE,[],[],[],1.5);
+Screen('Flip',w);
+KbWait();
 
+%% Trigger
+
+if fmri == 1;
+    DrawFormattedText(w,'Synching with fMRI: Waiting for trigger','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    
+    scan_sec = KbTriggerWait(KEY.trigger,xkeys);
+else
+    scan_sec = GetSecs();
+end
+
+    
 
 for block = 1:STIM.blocks
     for trial = 1:STIM.trials
@@ -202,11 +245,13 @@ for block = 1:STIM.blocks
         texture = Screen('MakeTexture',w,tpx);
         
         DrawFormattedText(w,'+','center','center',COLORS.WHITE);
-        SimpExp.data(tcounter).fix_onset = Screen('Flip',w);
+        fixon = Screen('Flip',w);
+        SimpExp.data(tcounter).fix_onset  = fixon - scan_sec;
         WaitSecs(SimpExp.data(tcounter).jitter);
         
         Screen('DrawTexture',w,texture);
-        SimpExp.data(tcounter).pic_onset = Screen('Flip',w);
+        picon = Screen('Flip',w);
+        SimpExp.data(tcounter).pic_onset = picon - scan_sec;
         WaitSecs(STIM.trialdur);
         
     end
@@ -219,27 +264,27 @@ for block = 1:STIM.blocks
 end
 
 %% Save all the data
-
-%Export GNG to text and save with subject number.
-%find the mfilesdir by figuring out where show_faces.m is kept
-
-%get the parent directory, which is one level up from mfilesdir
 savedir = [mdir filesep 'Results' filesep];
+cd(savedir)
+savename = ['SimpleExposure_Training_' num2str(ID) '.mat'];
 
-if exist(savedir,'dir') == 0;
-    % If savedir (the directory to save files in) does not exist, make it.
-    mkdir(savedir);
+if exist(savename,'file')==2;
+    savename = ['SimpleExposure_Training_' num2str(ID) '_' sprintf('%s_%2.0f%02.0f',date,d(4),d(5)) '.mat'];
 end
 
 try
-
-save([savedir 'SimpExp_' num2str(ID) '_' num2str(SESS) '.mat'],'SimpExp');
-
+save([savedir savename],'SimpExp');
 catch
-    error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
+    warning('Something is amiss with this save. Retrying to save in a more general location...');
+    try
+        save([mdir filesep savename],'SimpExp');
+    catch
+        warning('STILL problems saving....Try right-clicking on ''SimpExp'' and Save as...');
+        SimpExp
+    end
 end
 
-DrawFormattedText(w,'That concludes this task.','center','center',COLORS.WHITE);
+DrawFormattedText(w,'That concludes this task. The assessor will be with you soon.','center','center',COLORS.WHITE);
 Screen('Flip', w);
 WaitSecs(10);
 

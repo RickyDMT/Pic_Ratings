@@ -15,6 +15,7 @@ fmri = str2double(answer{2});
 
 [mfilesdir,~,~] = fileparts(which('PicRatings_U4ED.m'));
 imgdir = [mfilesdir filesep 'Pics'];
+% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics'
 cd(imgdir);
 
 COLORS = struct;
