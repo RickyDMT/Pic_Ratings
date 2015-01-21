@@ -1,6 +1,6 @@
 function SimpleExposure_Training(varargin)
 
-global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial pahandle
+global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial
 
 %This is for food exposure!
 
@@ -90,16 +90,16 @@ if COND ==1;    %If EXP condition!
         if randopics == 1
             cd(imgdir)
             p = struct;
-            p.PicRating.no = dir('Unhealthy*');
-            p.PicRating.go = dir('Healthy*');
+            p.PicRating.U = dir('Unhealthy*');
+            p.PicRating.H = dir('Healthy*');
             
         else
             error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
         end
         
     end
-    PICS.in.hi = struct('name',{p.PicRating.no(1:100).name}');
-    PICS.in.lo = struct('name',{p.PicRating.go(1:100).name}');
+    PICS.in.hi = struct('name',{p.PicRating.U(1:100).name}');
+    PICS.in.lo = struct('name',{p.PicRating.H(1:100).name}');
 else
     cd(imgdir)
     p = struct;
@@ -115,7 +115,7 @@ neutpics = dir('water*');
 
 %Check if pictures are present. If not, throw error.
 %Could be updated to search computer to look for pics...
-if isempty(neutpics) || isempty(PICS.in.hi) %|| isempty(neutpics)
+if isempty(neutpics) || isempty(PICS.in.hi) || isempty(PICS.in.lo)
     error('Could not find pics. Please ensure pictures are found in a folder names IMAGES within the folder containing the .m task file.');
 end
 
@@ -220,11 +220,6 @@ Screen('TextSize',w,30);
 
 KbName('UnifyKeyNames');
 
-%% Initial screen
-DrawFormattedText(w,'Imagine you''re eating this food or something...','center','center',COLORS.WHITE,[],[],[],1.5);
-Screen('Flip',w);
-KbWait();
-
 %% Trigger
 
 if fmri == 1;
@@ -236,7 +231,11 @@ else
     scan_sec = GetSecs();
 end
 
-    
+%% Initial screen
+DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,[],[],[],1.5);
+Screen('Flip',w);
+KbWait([],2);
+
 
 for block = 1:STIM.blocks
     for trial = 1:STIM.trials
