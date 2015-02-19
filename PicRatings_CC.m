@@ -1,23 +1,33 @@
-function PicRatings_Training(varargin)
+function PicRatings_CC(varargin)
 % Rate all images, choose top X picsn
 % Has fMRI capabilities, but mostly commented out. Need to re-add jitter to
 % cross hair as it's been removed for non-scnanner usage.
 
-global wRect w XCENTER rects mids COLORS KEYS PicRating_Training
+global wRect w XCENTER rects mids COLORS KEYS PicRating_CC
 
-prompt={'SUBJECT ID' 'fMRI? (1 = Y, 0 = N)'};
-defAns={'4444' '0'};
+prompt={'SUBJECT ID'}; %'fMRI? (1 = Y, 0 = N)'};
+defAns={'4444'}; %'0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
-fmri = str2double(answer{2});
+% fmri = str2double(answer{2});
 
 
 
-[mfilesdir,~,~] = fileparts(which('PicRatings_Training.m'));
-imgdir = [mfilesdir filesep 'Pics'];
-% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics'
+[mfilesdir,~,~] = fileparts(which('PicRatings_CC.m'));
+
+% savedir = [mfilesdir filesep 'Results'];
+% 
+% savefilename = sprintf('PicRate_Training_%d.mat',ID);
+savefile = [mfilesdir filesep 'Ratings' filesep sprintf('PicRatings_CC_%d.mat',ID)];
+
+if exist(savefile,'file') == 2;
+    error('File already exists. Please double-check and/or re-enter participant data.');
+end
+
+imgdir = [mfilesdir filesep 'Pics']; %XXX: WHAT IS THIS ON BAKER?
+
 cd(imgdir);
 
 COLORS = struct;
@@ -43,15 +53,14 @@ KEYS.SIX= KbName('6^');
 KEYS.SEVEN= KbName('7&');
 KEYS.EIGHT= KbName('8*');
 KEYS.NINE= KbName('9(');
-KEYS.TEN= KbName('0)');
+% KEYS.TEN= KbName('0)');
 rangetest = cell2mat(struct2cell(KEYS));
 KEYS.all = min(rangetest):max(rangetest);
-KEYS.trigger = KbName('''"');
+% KEYS.trigger = KbName('''"');
 
 
 PICS =struct;
-    %PICS.in.Un = dir('Binge*');
-
+    
     PICS.in.Un = dir('Unhealthy*');
     PICS.in.H = dir('Healthy*');
     
@@ -68,11 +77,11 @@ PICS =struct;
 
 % jitter = BalanceTrials(length(picnames),1,[1 2 3]);
 
-PicRating_Training = struct('filename',picnames(:,1),'PicType',picnames(:,2),'Rate_App',0); %,'Jitter',[],'FixOnset',[],'PicOnset',[],'RatingOnset',[],'RT',[]); %,'Rate_Crave',0);
+PicRating_CC = struct('filename',picnames(:,1),'PicType',picnames(:,2),'Rate_App',0); %,'Jitter',[],'FixOnset',[],'PicOnset',[],'RatingOnset',[],'RT',[]); %,'Rate_Crave',0);
 
-% for hhh = 1:length(PicRating_Training);
+% for hhh = 1:length(PicRating_CC);
 %     
-%     PicRating_Training(hhh).Jitter = jitter(hhh);
+%     PicRating_CC(hhh).Jitter = jitter(hhh);
 % end
 
 
@@ -148,11 +157,11 @@ verbage = 'How appetizing is this food?';
 
 %% Intro
 
-DrawFormattedText(w,'We are going to show you some pictures of food and have you rate how appetizing each food is.\n\n You will use a scale from 1 to 10, where 1 is "Not at all appetizing" and 10 is "Extremely appetizing."\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
+DrawFormattedText(w,'We are going to show you some pictures of food and have you rate how appetizing each food is.\n\n You will use a scale from 1 to 9, where 1 is "Not at all appetizing" and 9 is "Extremely appetizing."\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
 Screen('Flip',w);
 KbWait([],3);
 
-DrawFormattedText(w,'You will use the numbers along the top of the keyboard to select your rating. \n\nPlease note that you will use the "0" key to select the number 10.\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
+DrawFormattedText(w,'Please use the numbers along the top of the keyboard to select your rating.\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
 Screen('Flip',w);
 KbWait([],3);
 
@@ -173,43 +182,43 @@ KbWait([],3);
 WaitSecs(1);
 
 
-for x = 1:20:length(PicRating_Training);  %UPDATE TO LENGTH OF GO PICS
+for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
     for y = 1:19;
         xy = x+y;
-        if xy > length(PicRating_Training)
+        if xy > length(PicRating_CC)
             break
         end
         
         DrawFormattedText(w,'+','center','center',COLORS.WHITE);
         Screen('Flip',w);
-%         PicRating_Training(xy).FixOnset = fixon - scan_sec;
-%         WaitSecs(PicRating_Training(xy).Jitter);
+%         PicRating_CC(xy).FixOnset = fixon - scan_sec;
+%         WaitSecs(PicRating_CC(xy).Jitter);
         WaitSecs(.25);
         
-        tp = imread(getfield(PicRating_Training,{xy},'filename'));
+        tp = imread(getfield(PicRating_CC,{xy},'filename'));
         tpx = Screen('MakeTexture',w,tp);          
         Screen('DrawTexture',w,tpx);
 %         picon = Screen('Flip',w);
-%         PicRating_Training(xy).PicOnset = picon - scan_sec;
+%         PicRating_CC(xy).PicOnset = picon - scan_sec;
 %         WaitSecs(5);
         
 %         Screen('DrawTexture',w,tpx);
-        drawRatings([],w);
+        drawRatings();
         DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
         Screen('Flip',w);
-%         PicRating_Training(xy).RatingOnset = rateon - scan_sec;
+%         PicRating_CC(xy).RatingOnset = rateon - scan_sec;
             
         FlushEvents();
             while 1
-                [keyisdown, rt, keycode] = KbCheck();
+                [keyisdown, ~, keycode] = KbCheck();
                 if (keyisdown==1 && any(keycode(KEYS.all)))
-%                     PicRating_Training(xy).RT = rt - rateon;
+%                     PicRating_CC(xy).RT = rt - rateon;
                     
                     rating = KbName(find(keycode));
                     rating = str2double(rating(1));
                     
                     Screen('DrawTexture',w,tpx);
-                    drawRatings(keycode,w);
+                    drawRatings(keycode);
                     DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
                     Screen('Flip',w);
                     WaitSecs(.25);
@@ -218,10 +227,10 @@ for x = 1:20:length(PicRating_Training);  %UPDATE TO LENGTH OF GO PICS
             end
             %Record response here.
 %             if q == 1;
-            if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
-                rating = 10;
-            end
-           PicRating_Training(xy).Rate_App = rating;
+%             if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
+%                 rating = 10;
+%             end
+           PicRating_CC(xy).Rate_App = rating;
            Screen('Flip',w);
            FlushEvents();
            WaitSecs(.25);
@@ -241,30 +250,35 @@ WaitSecs(.5);
 %% Sort & Save List of Foods.
 %Sort by top appetizing ratings for each set.
 fields = {'name' 'pictype' 'rating'}; %'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
-presort = struct2cell(PicRating_Training)';
+presort = struct2cell(PicRating_CC)';
 pre_H = presort(([presort{:,2}]==1),:);
 pre_U = presort(([presort{:,2}]==0),:);
-postsort_H = sortrows(pre_H,-3);    %Sort descending by column 2
+postsort_H = sortrows(pre_H,-3);    %Sort descending by column 3
 postsort_U = sortrows(pre_U,-3);
 PicRating.H = cell2struct(postsort_H,fields,2);
 PicRating.U = cell2struct(postsort_U,fields,2);
 
-savedir = [mfilesdir filesep 'Results'];
+% savedir = [mfilesdir filesep 'Results'];
 
-savefilename = sprintf('PicRate_Training_%d.mat',ID);
-savefile = fullfile(savedir,savefilename);
+% savefilename = sprintf('PicRate_Training_%d.mat',ID);
+% savefile = fullfile(savedir,savefilename);
 
 try
-save(savefile,'PicRating');
+save(savefile,'PicRating_CC');
 catch
     warning('Something is amiss with this save. Retrying to save in a more general location...');
     try
         save([mfilesdir filesep savefilename],'PicRating');
     catch
-        warning('STILL problems saving....Try right-clicking on ''PicRating'' and Save as...');
-        PicRating
+        warning('STILL problems saving....Try right-clicking on ''h'' and Save as...');
+        h = PicRating
     end
 end
+
+DrawFormattedText(w,'That concludes this task. The assessor will be with you shortly.','center','center',COLORS.WHITE);
+Screen('Flip',w);
+WaitSecs(5);
+
 sca
 
 end
@@ -279,7 +293,7 @@ global wRect XCENTER
 %of screen is determined. Then, images are 1/4th the side of that square
 %(minus the 3 x the gap between images.
 
-num_rects = 10;                 %How many rects?
+num_rects = 9;                 %How many rects?
 xlen = wRect(3)*.9;           %Make area covering about 90% of vertical dimension of screen.
 gap = 10;                       %Gap size between each rect
 square_side = fix((xlen - (num_rects-1)*gap)/num_rects); %Size of rect depends on size of screen.
@@ -287,10 +301,10 @@ square_side = fix((xlen - (num_rects-1)*gap)/num_rects); %Size of rect depends o
 squart_x = XCENTER-(xlen/2);
 squart_y = wRect(4)*.8;         %Rects start @~80% down screen.
 
-rects = zeros(4,10);
+rects = zeros(4,num_rects);
 
 % for row = 1:DIMS.grid_row;
-    for col = 1:10;
+    for col = 1:num_rects;
 %         currr = ((row-1)*DIMS.grid_col)+col;
         rects(1,col)= squart_x + (col-1)*(square_side+gap);
         rects(2,col)= squart_y;
@@ -307,7 +321,8 @@ function drawRatings(varargin)
 
 global w KEYS COLORS rects mids
 
-colors=repmat(COLORS.BLUE',1,10);
+num_rects = 9;  
+colors=repmat(COLORS.BLUE',1,num_rects);
 % rects=horzcat(allRects.rate1rect',allRects.rate2rect',allRects.rate3rect',allRects.rate4rect');
 
 %Needs to feed in "code" from KbCheck, to show which key was chosen.
@@ -339,8 +354,8 @@ if nargin >= 1 && ~isempty(varargin{1})
             choice=8;
         case {KEYS.NINE}
             choice=9;
-        case {KEYS.TEN}
-            choice = 10;
+%         case {KEYS.TEN}
+%             choice = 10;
     end
     
     if exist('choice','var')
@@ -351,15 +366,8 @@ if nargin >= 1 && ~isempty(varargin{1})
     end
 end
 
-if nargin>=2
-    
-    window=varargin{2};
-    
-else
-    
+
     window=w;
-    
-end
    
 
 Screen('TextFont', window, 'Arial');
@@ -380,7 +388,7 @@ Screen('FrameRect',window,colors,rects,1);
 
 
 %draw the text (1-10)
-for n = 1:10;
+for n = 1:num_rects;
     numnum = sprintf('%d',n);
     CenterTextOnPoint(window,numnum,mids(1,n),mids(2,n),COLORS.BLUE);
 end

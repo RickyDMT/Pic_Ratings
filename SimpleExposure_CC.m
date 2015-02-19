@@ -1,4 +1,4 @@
-function SimpleExposure_Training(varargin)
+function SimpleExposure_CC(varargin)
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial
 
@@ -16,7 +16,7 @@ fmri = str2double(answer{3});
 % prac = str2double(answer{4});
 
 
-rng(ID); %Seed random number generator with subject ID
+% rng(ID); %Seed random number generator with subject ID
 d = clock;
 
 KEY = struct;
@@ -36,9 +36,12 @@ COLORS.YELLOW = [255 255 0];
 COLORS.rect = COLORS.GREEN;
 
 STIM = struct;
-STIM.blocks = 6;
-STIM.trials = 10;
+STIM.blocks = 5;
+STIM.trials = 20;
 STIM.totes = STIM.blocks*STIM.trials;
+STIM.hi_trials = 40;
+STIM.lo_trials = 40;
+STIM.neut_trials = 20;
 STIM.trialdur = 5;
 STIM.jitter = [2 3 4];
 
@@ -65,12 +68,12 @@ end
 
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
-[mdir,~,~] = fileparts(which('SimpleExposure_Training.m'));
+[mdir,~,~] = fileparts(which('SimpleExposure_CC.m'));
 
 % [ratedir,~,~] = fileparts(which('PicRatings_U4ED.m'));
 picratefolder = fullfile(mdir,'Ratings');   %xXX: Double check this is right folder!!!
-% imgdir = fullfile(ratedir,'Pics');
-imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';
+ imgdir = fullfile(mdir,'Pics');
+% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';
 
 try
     cd(picratefolder)
@@ -90,21 +93,21 @@ if COND ==1;    %If EXP condition!
         if randopics == 1
             cd(imgdir)
             p = struct;
-            p.PicRating.U = dir('Unhealthy*');
-            p.PicRating.H = dir('Healthy*');
+            p.PicRating.go = dir('Unhealthy*');
+            p.PicRating.no = dir('Healthy*');
             
         else
             error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
         end
         
     end
-    PICS.in.hi = struct('name',{p.PicRating.U(1:100).name}');
-    PICS.in.lo = struct('name',{p.PicRating.H(1:100).name}');
+    PICS.in.hi = struct('name',{p.PicRating.go(1:100).name}');
+    PICS.in.lo = struct('name',{p.PicRating.no(1:100).name}');
 else
     cd(imgdir)
     p = struct;
-    PICS.in.hi = dir('Unhealthy*');
-    PICS.in.lo = dir('Healthy*');
+    PICS.in.go = dir('Unhealthy*');
+    PICS.in.no = dir('Healthy*');
 end
 
     
@@ -124,7 +127,7 @@ SimpExp = struct;
 
 
     %1 = hi cal food, 2 = low cal food, 0 = water
-    pictype = [ones(40,1); repmat(2,40,1); zeros(20,1)];
+    pictype = [ones(STIM.hi_trials,1); repmat(2,STIM.lo_trials,1); zeros(STIM.neut_trials,1)];
 
 if COND == 1    
     %1 = in training tasks, 0 = not in training tasks
@@ -140,7 +143,7 @@ else
     %selected from entire list of possible pics.
     
     trainpic = zeros(length(pictype),1);
-    piclist = [randperm(length(PICS.in.hi),40)'; randperm(length(PICS.in.lo),40)'; randperm(length(neutpics),20)'];
+    piclist = [randperm(length(PICS.in.go),40)'; randperm(length(PICS.in.no),40)'; randperm(length(neutpics),20)'];
 end
 
 %Concatenate these into a long list of trial types.
@@ -149,17 +152,24 @@ shuffled = trial_types(randperm(size(trial_types,1)),:);
 
 jitter = BalanceTrials(STIM.totes,1,STIM.jitter);
 
+if length(jitter) > length(trial_types)
+    jitter = jitter(1:length(trial_types),:);
+end
+
+
  for x = 1:STIM.blocks
      for y = 1:STIM.trials;
          tc = (x-1)*STIM.trials + y;
+         SimpExp.data(tc).block = x;
+         SimpExp.data(tc).trial = y;
          SimpExp.data(tc).pictype = shuffled(tc,1);
          SimpExp.data(tc).training = shuffled(tc,2);
          if shuffled(tc,1) == 1
-            SimpExp.data(tc).picname = PICS.in.hi(shuffled(tc,3)).name;
+            SimpExp.data(tc).picname = PICS.in.go(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 0
              SimpExp.data(tc).picname = neutpics(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 2;
-             SimpExp.data(tc).picname = PICS.in.lo(shuffled(tc,3)).name;
+             SimpExp.data(tc).picname = PICS.in.no(shuffled(tc,3)).name;
          end
          SimpExp.data(tc).jitter = jitter(tc);
          SimpExp.data(tc).fix_onset = NaN;
@@ -220,6 +230,11 @@ Screen('TextSize',w,30);
 
 KbName('UnifyKeyNames');
 
+%% Initial screen
+DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,[],[],[],1.5);
+Screen('Flip',w);
+KbWait([],2);
+
 %% Trigger
 
 if fmri == 1;
@@ -231,15 +246,11 @@ else
     scan_sec = GetSecs();
 end
 
-%% Initial screen
-DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,[],[],[],1.5);
-Screen('Flip',w);
-KbWait([],2);
-
-
+%%
 for block = 1:STIM.blocks
     for trial = 1:STIM.trials
         tcounter = (block-1)*STIM.trials + trial;
+        
         tpx = imread(getfield(SimpExp,'data',{tcounter},'picname'));
         texture = Screen('MakeTexture',w,tpx);
         
@@ -265,10 +276,10 @@ end
 %% Save all the data
 savedir = [mdir filesep 'Results' filesep];
 cd(savedir)
-savename = ['SimpleExposure_Training_' num2str(ID) '.mat'];
+savename = ['SimpleExposure_CC_' num2str(ID) '.mat'];
 
 if exist(savename,'file')==2;
-    savename = ['SimpleExposure_Training_' num2str(ID) '_' sprintf('%s_%2.0f%02.0f',date,d(4),d(5)) '.mat'];
+    savename = ['SimpleExposure_CC_' num2str(ID) '_' sprintf('%s_%2.0f%02.0f',date,d(4),d(5)) '.mat'];
 end
 
 try
@@ -279,13 +290,13 @@ catch
         save([mdir filesep savename],'SimpExp');
     catch
         warning('STILL problems saving....Try right-clicking on ''SimpExp'' and Save as...');
-        SimpExp
+        simpexp = SimpExp
     end
 end
 
 DrawFormattedText(w,'That concludes this task. The assessor will be with you soon.','center','center',COLORS.WHITE);
 Screen('Flip', w);
-WaitSecs(10);
+WaitSecs(5);
 
 sca
 
