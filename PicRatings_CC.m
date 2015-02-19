@@ -5,12 +5,19 @@ function PicRatings_CC(varargin)
 
 global wRect w XCENTER rects mids COLORS KEYS PicRating_CC
 
-prompt={'SUBJECT ID'}; %'fMRI? (1 = Y, 0 = N)'};
-defAns={'4444'}; %'0'};
+prompt={'SUBJECT ID' 'Session'}; %'fMRI? (1 = Y, 0 = N)'};
+defAns={'4444' '0'}; %'0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
+SESS = str2double(answer{2});
+
+if isempty(SESS) || SESS < 1 || ~isnumeric(SESS);
+    error('Session must be whole number, 1 - (infinity?). Please input which session this data collection represents.')
+end
+
+    
 % fmri = str2double(answer{2});
 
 
@@ -20,13 +27,13 @@ ID=str2double(answer{1});
 % savedir = [mfilesdir filesep 'Results'];
 % 
 % savefilename = sprintf('PicRate_Training_%d.mat',ID);
-savefile = [mfilesdir filesep 'Ratings' filesep sprintf('PicRatings_CC_%d.mat',ID)];
+savefile = [mfilesdir filesep 'Ratings' filesep sprintf('PicRatings_CC_%d-%d.mat',ID,SESS)];
 
 if exist(savefile,'file') == 2;
-    error('File already exists. Please double-check and/or re-enter participant data.');
+    error('File already exists. Please double-check and/or re-enter participant number and session information.');
 end
 
-imgdir = [mfilesdir filesep 'Pics']; %XXX: WHAT IS THIS ON BAKER?
+imgdir = [mfilesdir filesep 'Pics']; %XXX: WHAT IS THIS ON BAKER vs LCNI?
 
 cd(imgdir);
 

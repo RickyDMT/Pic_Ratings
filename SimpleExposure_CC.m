@@ -1,18 +1,24 @@
 function SimpleExposure_CC(varargin)
+% Notes on 2/19/15
+%Ratings file location: Make sure ratings files are in folder called "Ratings" within same folder as SimpleExposure_CC.m
+%Pics folder path: Adjust accordingly Make sure THIS is true too.
+%Only using session 1 ratings, regardless of fMRI session?: Assumes only uses ratings from Session 1. Change as needed.
+%Check Pic size & adjust imgrect accordingly.
+%Different sizes for different pic types?  Adjust accordingly.
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial
 
 %This is for food exposure!
 
-prompt={'SUBJECT ID' 'Condition' 'fMRI'};
-defAns={'4444' '1' '0'};
+prompt={'SUBJECT ID' 'Condition' 'Session' 'fMRI (1 = Yes, 0 = No)'};
+defAns={'4444' '1' '1' '0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
 COND = str2double(answer{2});
-fmri = str2double(answer{3});
-% SESS = str2double(answer{3});
+fmri = str2double(answer{4});
+SESS = str2double(answer{3});
 % prac = str2double(answer{4});
 
 
@@ -36,14 +42,15 @@ COLORS.YELLOW = [255 255 0];
 COLORS.rect = COLORS.GREEN;
 
 STIM = struct;
-STIM.blocks = 5;
-STIM.trials = 20;
+STIM.blocks = 2;
+STIM.trials = 50;
 STIM.totes = STIM.blocks*STIM.trials;
-STIM.hi_trials = 40;
-STIM.lo_trials = 40;
+STIM.H_trials = 40;
+STIM.UnH_trials = 40;
 STIM.neut_trials = 20;
 STIM.trialdur = 5;
 STIM.jitter = [2 3 4];
+% STIM.jitter = [.5 1 1.5];
 
 
 %% Keyboard stuff for fMRI...
@@ -70,10 +77,18 @@ end
 %find the image directory by figuring out where the .m is kept
 [mdir,~,~] = fileparts(which('SimpleExposure_CC.m'));
 
-% [ratedir,~,~] = fileparts(which('PicRatings_U4ED.m'));
-picratefolder = fullfile(mdir,'Ratings');   %xXX: Double check this is right folder!!!
- imgdir = fullfile(mdir,'Pics');
-% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';
+savedir = [mdir filesep 'Results' filesep];
+savename = sprintf('SimpleExposure_CC_%d-%d.mat',ID,SESS);
+savefile = [savedir filesep savename];
+% Check if file exists...
+
+if exist(savefile,'file') == 2;
+    error('File already exists. Please double-check and/or re-enter participant number and session information.');
+end
+
+picratefolder = fullfile(mdir,'Ratings');   %XXX: Make sure ratings files are in folder called "Ratings" within same folder as SimpleExposure_CC.m
+imgdir = fullfile(mdir,'Pics');             %XXX: Adjust accordingly Make sure THIS is true too.
+% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
 
 try
     cd(picratefolder)
@@ -83,7 +98,7 @@ end
 
 
 if COND ==1;    %If EXP condition!
-    filen = sprintf('PicRate_Training_%d.mat',ID);
+    filen = sprintf('PicRatings_CC_%d-1.mat',ID); %XXX: Assumes only uses ratings from Session 1. Change as needed.
     try
         p = open(filen);
     catch
@@ -101,18 +116,19 @@ if COND ==1;    %If EXP condition!
         end
         
     end
-    PICS.in.hi = struct('name',{p.PicRating.go(1:100).name}');
-    PICS.in.lo = struct('name',{p.PicRating.no(1:100).name}');
+    cd(imgdir);
+    PICS.in.H = struct('name',{p.PicRating.go(1:100).name}');
+    PICS.in.UnH = struct('name',{p.PicRating.no(1:100).name}');
 else
     cd(imgdir)
-    p = struct;
-    PICS.in.go = dir('Unhealthy*');
-    PICS.in.no = dir('Healthy*');
+%     p = struct;
+    PICS.in.H = dir('Unhealthy*');
+    PICS.in.UnH = dir('Healthy*');
 end
 
     
 
-cd(imgdir);
+% cd(imgdir);
 
 neutpics = dir('water*');
 
@@ -127,7 +143,7 @@ SimpExp = struct;
 
 
     %1 = hi cal food, 2 = low cal food, 0 = water
-    pictype = [ones(STIM.hi_trials,1); repmat(2,STIM.lo_trials,1); zeros(STIM.neut_trials,1)];
+    pictype = [ones(STIM.H_trials,1); repmat(2,STIM.UnH_trials,1); zeros(STIM.neut_trials,1)];
 
 if COND == 1    
     %1 = in training tasks, 0 = not in training tasks
@@ -136,14 +152,14 @@ if COND == 1
     %Make long list of randomized #s to represent each pic
     %Need random 20 from top 80 pics + random ordering of next 20 pics
     %Repeat for low cal food...
-    piclist = [randperm(80,20)'; (randperm(20)+80)'; randperm(80,20)'; (randperm(20)+80)'; randperm(length(neutpics),20)'];
+    piclist = [randperm(80,20)'; (randperm(20)+80)'; randperm(80,20)'; (randperm(20)+80)'; randperm(length(neutpics),STIM.neut_trials)'];
     
 else
     %Otherwise, all pics are NOT in training tasks and are thus randomly
     %selected from entire list of possible pics.
     
     trainpic = zeros(length(pictype),1);
-    piclist = [randperm(length(PICS.in.go),40)'; randperm(length(PICS.in.no),40)'; randperm(length(neutpics),20)'];
+    piclist = [randperm(length(PICS.in.H),40)'; randperm(length(PICS.in.UnH),40)'; randperm(length(neutpics),STIM.neut_trials)'];
 end
 
 %Concatenate these into a long list of trial types.
@@ -165,16 +181,17 @@ end
          SimpExp.data(tc).pictype = shuffled(tc,1);
          SimpExp.data(tc).training = shuffled(tc,2);
          if shuffled(tc,1) == 1
-            SimpExp.data(tc).picname = PICS.in.go(shuffled(tc,3)).name;
+            SimpExp.data(tc).picname = PICS.in.H(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 0
              SimpExp.data(tc).picname = neutpics(shuffled(tc,3)).name;
          elseif shuffled(tc,1) == 2;
-             SimpExp.data(tc).picname = PICS.in.no(shuffled(tc,3)).name;
+             SimpExp.data(tc).picname = PICS.in.UnH(shuffled(tc,3)).name;
          end
          SimpExp.data(tc).jitter = jitter(tc);
          SimpExp.data(tc).fix_onset = NaN;
          SimpExp.data(tc).pic_onset = NaN;
      end
+
  end
 
     SimpExp.info.ID = ID;
@@ -226,12 +243,23 @@ end
 %you can set the font sizes and styles here
 Screen('TextFont', w, 'Arial');
 %Screen('TextStyle', w, 1);
-Screen('TextSize',w,30);
+Screen('TextSize',w,35);
 
 KbName('UnifyKeyNames');
 
+%% How big to make image;
+
+%image should take up X% of vertical space.
+halfside = fix((wRect(4)*.75)/2);
+%pics are naturally 1/3 Wider than tall...
+x_halfside = fix((wRect(4)*.75*(1+1/3))/2); %XXX: CHECK PIC SIZE FOR PROPER PROPORTION W:H.
+
+imgrect = [XCENTER-x_halfside; YCENTER-halfside; XCENTER+x_halfside; YCENTER+halfside];
+imgrect_neut = [XCENTER-halfside; YCENTER-halfside; XCENTER+halfside; YCENTER+halfside];
+
+    
 %% Initial screen
-DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,[],[],[],1.5);
+DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,60,[],[],1.5);
 Screen('Flip',w);
 KbWait([],2);
 
@@ -248,6 +276,7 @@ end
 
 %%
 for block = 1:STIM.blocks
+    old = Screen('TextSize',w,60);
     for trial = 1:STIM.trials
         tcounter = (block-1)*STIM.trials + trial;
         
@@ -259,27 +288,39 @@ for block = 1:STIM.blocks
         SimpExp.data(tcounter).fix_onset  = fixon - scan_sec;
         WaitSecs(SimpExp.data(tcounter).jitter);
         
-        Screen('DrawTexture',w,texture);
+        %XXX: If different size pix for different trial types (i.e.,
+        %neutral are oddly shaped), do if statement for imgrect);
+        if SimpExp.data(tcounter).pictype == 0;
+            Screen('DrawTexture',w,texture,[],imgrect_neut);
+        else
+            Screen('DrawTexture',w,texture,[],imgrect);
+        end
+        
         picon = Screen('Flip',w);
         SimpExp.data(tcounter).pic_onset = picon - scan_sec;
         WaitSecs(STIM.trialdur);
         
     end
     
+    Screen('TextSize',w,old);
     
-    DrawFormattedText(w,'Press any key to continue','center',wRect(4)*9/10,COLORS.WHITE);
-    Screen('Flip',w);
-    KbWait();
+    if block < STIM.blocks;
+        interblocktext = sprintf('That concludes Block %d.\n\nPress any key to continue to Block %d when you are ready.',block,block+1);
+        DrawFormattedText(w,interblocktext,'center','center',COLORS.WHITE);
+        Screen('Flip',w);
+        KbWait([],2);
+    end
+     
     
 end
 
 %% Save all the data
-savedir = [mdir filesep 'Results' filesep];
-cd(savedir)
-savename = ['SimpleExposure_CC_' num2str(ID) '.mat'];
+% savedir = [mdir filesep 'Results' filesep];
+% cd(savedir)
+% savename = sprintf('SimpleExposure_CC_%d-%d.mat',ID,SESS);
 
 if exist(savename,'file')==2;
-    savename = ['SimpleExposure_CC_' num2str(ID) '_' sprintf('%s_%2.0f%02.0f',date,d(4),d(5)) '.mat'];
+    savename = sprintf('SimpleExposure_CC_%d-%d_%s_%2.0f%02.0f.mat',ID,SESS,date,d(4),d(5));
 end
 
 try
