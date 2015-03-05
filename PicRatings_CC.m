@@ -1,12 +1,12 @@
 function PicRatings_CC(varargin)
-% Rate all images, choose top X picsn
+% Rate all images, randomly choose 60 pics from top 80.
 % Has fMRI capabilities, but mostly commented out. Need to re-add jitter to
 % cross hair as it's been removed for non-scnanner usage.
 
 global wRect w XCENTER rects mids COLORS KEYS PicRating_CC
 
 prompt={'SUBJECT ID' 'Session'}; %'fMRI? (1 = Y, 0 = N)'};
-defAns={'4444' '0'}; %'0'};
+defAns={'4444' '1'}; %'0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
@@ -160,7 +160,7 @@ Screen('TextSize',w,35);
 
 %% Dat Grid
 [rects,mids] = DrawRectsGrid();
-verbage = 'How appetizing is this food?';
+verbage = {'How appetizing is this food?' 'How much do you value this food?'};
 
 %% Intro
 
@@ -211,7 +211,7 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
         
 %         Screen('DrawTexture',w,tpx);
         drawRatings();
-        DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
+        DrawFormattedText(w,verbage(1),'center',(wRect(4)*.75),COLORS.BLUE);
         Screen('Flip',w);
 %         PicRating_CC(xy).RatingOnset = rateon - scan_sec;
             
@@ -240,7 +240,46 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
            PicRating_CC(xy).Rate_App = rating;
            Screen('Flip',w);
            FlushEvents();
-           WaitSecs(.25);
+%            WaitSecs(.25);
+
+% % %            %% DO IT AGAIN FOR "VALUE"
+% % %         Screen('DrawTexture',w,tpx);
+% % % %         picon = Screen('Flip',w);
+% % % %         PicRating_CC(xy).PicOnset = picon - scan_sec;
+% % % %         WaitSecs(5);
+% % %         
+% % % %         Screen('DrawTexture',w,tpx);
+% % %         drawRatings();
+% % %         DrawFormattedText(w,verbage(2),'center',(wRect(4)*.75),COLORS.BLUE);
+% % %         Screen('Flip',w);
+% % % %         PicRating_CC(xy).RatingOnset = rateon - scan_sec;
+% % %             
+% % %         FlushEvents();
+% % %             while 1
+% % %                 [keyisdown, ~, keycode] = KbCheck();
+% % %                 if (keyisdown==1 && any(keycode(KEYS.all)))
+% % % %                     PicRating_CC(xy).RT = rt - rateon;
+% % %                     
+% % %                     rating_dos = KbName(find(keycode));
+% % %                     rating_dos = str2double(rating_dos(1));
+% % %                     
+% % %                     Screen('DrawTexture',w,tpx);
+% % %                     drawRatings(keycode);
+% % %                     DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
+% % %                     Screen('Flip',w);
+% % %                     WaitSecs(.25);
+% % %                     break;
+% % %                 end
+% % %             end
+% % %             %Record response here.
+% % % %             if q == 1;
+% % % %             if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
+% % % %                 rating = 10;
+% % % %             end
+% % %            PicRating_CC(xy).Rate_Val = rating_dos;
+% % %            Screen('Flip',w);
+% % %            FlushEvents();
+% % %            WaitSecs(.25);
     end
     %Take a break every 20 pics.
     Screen('Flip',w);
@@ -256,12 +295,24 @@ WaitSecs(.5);
 
 %% Sort & Save List of Foods.
 %Sort by top appetizing ratings for each set.
-fields = {'name' 'pictype' 'rating'}; %'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
+fields = {'name' 'pictype' 'rating' 'chosen'}; %'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
 presort = struct2cell(PicRating_CC)';
 pre_H = presort(([presort{:,2}]==1),:);
 pre_U = presort(([presort{:,2}]==0),:);
+
 postsort_H = sortrows(pre_H,-3);    %Sort descending by column 3
 postsort_U = sortrows(pre_U,-3);
+
+%Need rando 60 out of 80 demarcated for tasks.
+chosenfew = [ones(60,1); zeros(20,1)];
+chosenfew_H = [chosenfew(randperm(length(chosenfew)),:); zeros(120,1)];
+chosenfew_U = [chosenfew(randperm(length(chosenfew)),:); zeros(120,1)];
+
+%Pair with sorted ratings.
+postsort_H = [postsort_H num2cell(chosenfew_H)];
+postsort_U = [postsort_U num2cell(chosenfew_U)];
+
+%Turn back into structure
 PicRating.H = cell2struct(postsort_H,fields,2);
 PicRating.U = cell2struct(postsort_U,fields,2);
 
@@ -271,14 +322,15 @@ PicRating.U = cell2struct(postsort_U,fields,2);
 % savefile = fullfile(savedir,savefilename);
 
 try
-save(savefile,'PicRating_CC');
+save(savefile,'PicRating');
 catch
     warning('Something is amiss with this save. Retrying to save in a more general location...');
     try
+        savefilename = sprintf('PicRatings_CC_%d-%d.mat',ID,SESS);
         save([mfilesdir filesep savefilename],'PicRating');
     catch
-        warning('STILL problems saving....Try right-clicking on ''h'' and Save as...');
-        h = PicRating
+        warning('STILL problems saving....Look for "PicRating.mat" and rename it PicRatings_CC_%d_%d.mat',ID,SESS);
+        save PicRating
     end
 end
 
