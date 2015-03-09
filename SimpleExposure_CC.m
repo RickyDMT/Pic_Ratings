@@ -90,6 +90,8 @@ picratefolder = fullfile(mdir,'Ratings');   %XXX: Make sure ratings files are in
 imgdir = fullfile(mdir,'Pics');             %XXX: Adjust accordingly Make sure THIS is true too.
 % imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
 
+randopics = 0;
+
 try
     cd(picratefolder)
 catch
@@ -111,14 +113,21 @@ if COND ==1;    %If EXP condition!
             p.PicRating.go = dir('Unhealthy*');
             p.PicRating.no = dir('Healthy*');
             
+            PICS.in.H = struct('name',{p.PicRating.go(randperm(40)).name}');
+            PICS.in.UnH = struct('name',{p.PicRating.no(randperm(40)).name}');
+            
         else
             error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
         end
         
     end
     cd(imgdir);
-    PICS.in.H = struct('name',{p.PicRating.go(1:100).name}');
-    PICS.in.UnH = struct('name',{p.PicRating.no(1:100).name}');
+    
+    if randopics == 0;
+        PICS.in.H = struct('name',{p.PicRating.H.name}');
+        PICS.in.UnH = struct('name',{p.PicRating.U.name}');
+        
+    end
 else
     cd(imgdir)
 %     p = struct;
@@ -134,7 +143,7 @@ neutpics = dir('water*');
 
 %Check if pictures are present. If not, throw error.
 %Could be updated to search computer to look for pics...
-if isempty(neutpics) || isempty(PICS.in.hi) || isempty(PICS.in.lo)
+if isempty(neutpics) || isempty(PICS.in.H) || isempty(PICS.in.UnH)
     error('Could not find pics. Please ensure pictures are found in a folder names IMAGES within the folder containing the .m task file.');
 end
 
@@ -148,12 +157,30 @@ SimpExp = struct;
 if COND == 1    
     %1 = in training tasks, 0 = not in training tasks
     trainpic = [repmat([ones(20,1); zeros(20,1)],2,1); zeros(20,1)];
-    
-    %Make long list of randomized #s to represent each pic
-    %Need random 20 from top 80 pics + random ordering of next 20 pics
-    %Repeat for low cal food...
-    piclist = [randperm(80,20)'; (randperm(20)+80)'; randperm(80,20)'; (randperm(20)+80)'; randperm(length(neutpics),STIM.neut_trials)'];
-    
+
+    if randopics == 1
+        %Just choose some random pics
+        trainpic = zeros(length(pictype),1);
+        piclist = [randperm(length(PICS.in.H),40)'; randperm(length(PICS.in.UnH),40)'; randperm(length(neutpics),STIM.neut_trials)'];
+
+    else
+        %1 = in training tasks, 0 = not in training tasks
+        trainpic = [repmat([ones(20,1); zeros(20,1)],2,1); zeros(20,1)];
+
+        %Make long list of randomized #s to represent each pic
+        %Need random 20 from top 80 pics + random ordering of next 20 pics
+        %Repeat for low cal food...
+        pics_chosen_H = [p.PicRating.H.chosen];    
+        pics_intrain_H = find(pics_chosen_H == 1);
+        pics_outtrain_H = find(pics_chosen_H == 0);
+
+        pics_chosen_U = [p.PicRating.U.chosen];    
+        pics_intrain_U = find(pics_chosen_U == 1);
+        pics_outtrain_U = find(pics_chosen_U == 0);
+
+        piclist = [pics_intrain_H(randperm(length(pics_intrain_H),20))'; pics_outtrain_H(randperm(20))'; pics_intrain_U(randperm(length(pics_intrain_U),20))'; pics_outtrain_U(randperm(20))'; randperm(length(neutpics),STIM.neut_trials)'];
+
+    end
 else
     %Otherwise, all pics are NOT in training tasks and are thus randomly
     %selected from entire list of possible pics.
@@ -331,7 +358,7 @@ catch
         save([mdir filesep savename],'SimpExp');
     catch
         warning('STILL problems saving....Try right-clicking on ''SimpExp'' and Save as...');
-        simpexp = SimpExp
+        save SimpExp
     end
 end
 
