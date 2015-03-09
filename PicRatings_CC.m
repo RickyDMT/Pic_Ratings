@@ -5,37 +5,19 @@ function PicRatings_CC(varargin)
 
 global wRect w XCENTER rects mids COLORS KEYS PicRating_CC
 
-prompt={'SUBJECT ID' 'Session'}; %'fMRI? (1 = Y, 0 = N)'};
-defAns={'4444' '1'}; %'0'};
+prompt={'SUBJECT ID' 'Session' 'Do App Rating?' 'Do W Rating'}; %'fMRI? (1 = Y, 0 = N)'};
+defAns={'4444' '1' '1' '1'}; %'0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
 SESS = str2double(answer{2});
+doapp = str2double(answer{3});
+dow = str2double(answer{4});
 
 if isempty(SESS) || SESS < 1 || ~isnumeric(SESS);
     error('Session must be whole number, 1 - (infinity?). Please input which session this data collection represents.')
 end
-
-    
-% fmri = str2double(answer{2});
-
-
-
-[mfilesdir,~,~] = fileparts(which('PicRatings_CC.m'));
-
-% savedir = [mfilesdir filesep 'Results'];
-% 
-% savefilename = sprintf('PicRate_Training_%d.mat',ID);
-savefile = [mfilesdir filesep 'Ratings' filesep sprintf('PicRatings_CC_%d-%d.mat',ID,SESS)];
-
-if exist(savefile,'file') == 2;
-    error('File already exists. Please double-check and/or re-enter participant number and session information.');
-end
-
-imgdir = [mfilesdir filesep 'Pics']; %XXX: WHAT IS THIS ON BAKER vs LCNI?
-
-cd(imgdir);
 
 COLORS = struct;
 COLORS.BLACK = [0 0 0];
@@ -60,11 +42,29 @@ KEYS.SIX= KbName('6^');
 KEYS.SEVEN= KbName('7&');
 KEYS.EIGHT= KbName('8*');
 KEYS.NINE= KbName('9(');
-% KEYS.TEN= KbName('0)');
+KEYS.TEN= KbName('0)');
 rangetest = cell2mat(struct2cell(KEYS));
-KEYS.all = min(rangetest):max(rangetest);
+KEYS.val = min(rangetest):max(rangetest);
+KEYS.all = KEYS.ONE:KEYS.NINE;
 % KEYS.trigger = KbName('''"');
+    
+% fmri = str2double(answer{2});
 
+[imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));    %This points to place holder .m file in MasterPics folder.
+
+cd(imgdir);
+
+[mfilesdir,~,~] = fileparts(which('PicRatings_CC.m'));
+savefile = [imgdir filesep 'Saved_Pic_Ratings' filesep sprintf('PicRatings_CC_%d-%d.mat',ID,SESS)];
+
+if exist(savefile,'file') == 2;
+    commandwindow;
+    warning('THIS FILE ALREADY EXISTS ARE YOU SURE YOU WANT TO CONTINUE?')
+    overright = input('Type 1 to over-write file or 0 to cancel and enter in new info: ');
+    if overright == 0;
+        error('File already exists. Please double-check and/or re-enter participant number and session information.');
+    end
+end
 
 PICS =struct;
     
@@ -159,11 +159,11 @@ Screen('TextFont', w, 'Arial');
 Screen('TextSize',w,35);
 
 %% Dat Grid
-[rects,mids] = DrawRectsGrid();
-verbage = {'How appetizing is this food?' 'How much do you value this food?'};
+[rects,mids] = DrawRectsGrid(1);
+verbage = {'How appetizing is this food?' 'How much is this food worth to you?'};
 
 %% Intro
-
+if doapp == 1;
 DrawFormattedText(w,'We are going to show you some pictures of food and have you rate how appetizing each food is.\n\n You will use a scale from 1 to 9, where 1 is "Not at all appetizing" and 9 is "Extremely appetizing."\n\nPress any key to continue.','center','center',COLORS.WHITE,50,[],[],1.5);
 Screen('Flip',w);
 KbWait([],3);
@@ -190,8 +190,8 @@ WaitSecs(1);
 
 
 for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
-    for y = 1:19;
-        xy = x+y;
+    for y = 1:20;
+        xy = x+(y-1);
         if xy > length(PicRating_CC)
             break
         end
@@ -211,7 +211,7 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
         
 %         Screen('DrawTexture',w,tpx);
         drawRatings();
-        DrawFormattedText(w,verbage(1),'center',(wRect(4)*.75),COLORS.BLUE);
+        DrawFormattedText(w,verbage{1},'center',(wRect(4)*.75),COLORS.BLUE);
         Screen('Flip',w);
 %         PicRating_CC(xy).RatingOnset = rateon - scan_sec;
             
@@ -221,12 +221,30 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
                 if (keyisdown==1 && any(keycode(KEYS.all)))
 %                     PicRating_CC(xy).RT = rt - rateon;
                     
-                    rating = KbName(find(keycode));
-                    rating = str2double(rating(1));
-                    
+                    if iscell(KbName(keycode)) && numel(KbName(keycode))>1  %You have mashed 2 keys; shame on you.
+                        rating = KbName(find(keycode,1));
+                        rating = str2double(rating(1));
+                        while isnan(rating);        %This key selection is not a number!
+                            newrating = KbName(keycode);
+                            for kk = 2:numel(newrating)
+                                rating = str2double(newrating(kk));
+                                if ~isnan(rating)
+                                    break
+                                elseif kk == length(KbName(keycode)) && isnan(rating);
+                                    %something has gone horrible awry;
+                                    warning('Trial #%d rating is NaN for some reason',xy);
+                                    rating = NaN;
+                                end
+                            end
+                        end
+                    else
+                        rating = KbName(find(keycode));
+                        rating = str2double(rating(1));
+                        
+                    end
                     Screen('DrawTexture',w,tpx);
                     drawRatings(keycode);
-                    DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
+                    DrawFormattedText(w,verbage{1},'center',(wRect(4)*.75),COLORS.BLUE);
                     Screen('Flip',w);
                     WaitSecs(.25);
                     break;
@@ -242,44 +260,6 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
            FlushEvents();
 %            WaitSecs(.25);
 
-% % %            %% DO IT AGAIN FOR "VALUE"
-% % %         Screen('DrawTexture',w,tpx);
-% % % %         picon = Screen('Flip',w);
-% % % %         PicRating_CC(xy).PicOnset = picon - scan_sec;
-% % % %         WaitSecs(5);
-% % %         
-% % % %         Screen('DrawTexture',w,tpx);
-% % %         drawRatings();
-% % %         DrawFormattedText(w,verbage(2),'center',(wRect(4)*.75),COLORS.BLUE);
-% % %         Screen('Flip',w);
-% % % %         PicRating_CC(xy).RatingOnset = rateon - scan_sec;
-% % %             
-% % %         FlushEvents();
-% % %             while 1
-% % %                 [keyisdown, ~, keycode] = KbCheck();
-% % %                 if (keyisdown==1 && any(keycode(KEYS.all)))
-% % % %                     PicRating_CC(xy).RT = rt - rateon;
-% % %                     
-% % %                     rating_dos = KbName(find(keycode));
-% % %                     rating_dos = str2double(rating_dos(1));
-% % %                     
-% % %                     Screen('DrawTexture',w,tpx);
-% % %                     drawRatings(keycode);
-% % %                     DrawFormattedText(w,verbage,'center',(wRect(4)*.75),COLORS.BLUE);
-% % %                     Screen('Flip',w);
-% % %                     WaitSecs(.25);
-% % %                     break;
-% % %                 end
-% % %             end
-% % %             %Record response here.
-% % % %             if q == 1;
-% % % %             if rating == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
-% % % %                 rating = 10;
-% % % %             end
-% % %            PicRating_CC(xy).Rate_Val = rating_dos;
-% % %            Screen('Flip',w);
-% % %            FlushEvents();
-% % %            WaitSecs(.25);
     end
     %Take a break every 20 pics.
     Screen('Flip',w);
@@ -287,15 +267,19 @@ for x = 1:20:length(PicRating_CC);  %UPDATE TO LENGTH OF GO PICS
     Screen('Flip',w);
     KbWait([],3);
     
+    if xy > length(PicRating_CC)
+            break
+    end
 end
 
 Screen('Flip',w);
 WaitSecs(.5);
 
+end
 
 %% Sort & Save List of Foods.
 %Sort by top appetizing ratings for each set.
-fields = {'name' 'pictype' 'rating' 'chosen'}; %'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
+fields = {'name' 'pictype' 'rating' 'chosen' 'value'}; %'jitter' 'FixOnset' 'PicOnset' 'RatingOnset' 'RT'};
 presort = struct2cell(PicRating_CC)';
 pre_H = presort(([presort{:,2}]==1),:);
 pre_U = presort(([presort{:,2}]==0),:);
@@ -309,8 +293,8 @@ chosenfew_H = [chosenfew(randperm(length(chosenfew)),:); zeros(120,1)];
 chosenfew_U = [chosenfew(randperm(length(chosenfew)),:); zeros(120,1)];
 
 %Pair with sorted ratings.
-postsort_H = [postsort_H num2cell(chosenfew_H)];
-postsort_U = [postsort_U num2cell(chosenfew_U)];
+postsort_H = [postsort_H num2cell(chosenfew_H) cell(length(postsort_H),1)];
+postsort_U = [postsort_U num2cell(chosenfew_U) cell(length(postsort_H),1)];
 
 %Turn back into structure
 PicRating.H = cell2struct(postsort_H,fields,2);
@@ -321,15 +305,94 @@ PicRating.U = cell2struct(postsort_U,fields,2);
 % savefilename = sprintf('PicRate_Training_%d.mat',ID);
 % savefile = fullfile(savedir,savefilename);
 
+%%
+if dow == 1;
+%Dat new grid:
+[rects,mids] = DrawRectsGrid(2);
+
+%List of H & U trials;
+val_trial = [ones(40,1); zeros(40,1)];
+val_pic = [randperm(40)'; randperm(40)'];
+val_trial = [val_trial val_pic];
+val_trial = val_trial(randperm(length(val_trial)),:);
+
+% Top40 Healthy & Unhealthy (low/high)
+% All pics interspersed
+% One big block
+% From $0 - 10 ('<$1 $2 $3....$10+')
+% Instructions to describe the scale.
+DrawFormattedText(w,'Next we would like you to view some of these images again and rate how much each food is worth to you. Using the number keys along the top of the key board, choose 1 if the food is worth $0 to $1 and up to 10 if the food is worth $10 or more. Note that you will press 0 (zero) at the top of the keyboard to choose "10."\n\nThere is no right or wrong answer, just choose what comes to mind first.\n\nPress any key to continue.','center','center',COLORS.WHITE,60,[],[],1.5);
+Screen('Flip',w);
+KbWait([],2);
+
+for vt = 1:length(val_trial);
+    DrawFormattedText(w,'+','center','center',COLORS.WHITE);
+    Screen('Flip',w);
+    WaitSecs(.25);
+    
+    valpicnum = val_trial(vt,2);
+        
+    if val_trial(vt,1) == 1; %If healthy trial       
+        tp = imread(getfield(PicRating.H,{valpicnum},'name'));
+    elseif val_trial(vt,1) == 0; %if Unhealthy trial
+        tp = imread(getfield(PicRating.U,{valpicnum},'name'));
+    end
+    tpx = Screen('MakeTexture',w,tp); 
+    Screen('DrawTexture',w,tpx);
+
+        drawValues();
+        DrawFormattedText(w,verbage{2},'center',(wRect(4)*.75),COLORS.BLUE);
+        Screen('Flip',w);
+
+            
+        FlushEvents();
+            while 1
+                [keyisdown, ~, keycode] = KbCheck();
+                if (keyisdown==1 && any(keycode(KEYS.val)))
+%                     PicRating_CC(xy).RT = rt - rateon;
+                    
+                    rating_dos = KbName(find(keycode));
+                    rating_dos = str2double(rating_dos(1));
+                    
+                    Screen('DrawTexture',w,tpx);
+                    drawValues(keycode);
+                    DrawFormattedText(w,verbage{2},'center',(wRect(4)*.75),COLORS.BLUE);
+                    Screen('Flip',w);
+                    WaitSecs(.25);
+                    break;
+                end
+            end
+            %Record response here.
+
+            if rating_dos == 0; %Zero key is used for 10. Thus check and correct for when they press 0.
+                rating_dos = 10;
+            end
+            
+            if val_trial(vt,1) == 1;
+                PicRating.H(valpicnum).value = rating_dos;
+            elseif val_trial(vt,1) == 0;
+                PicRating.U(valpicnum).value = rating_dos;
+            end
+                
+           Screen('Flip',w);
+           FlushEvents();
+           WaitSecs(.25);
+end
+
+end
+
+%% Save dat data
 try
 save(savefile,'PicRating');
 catch
-    warning('Something is amiss with this save. Retrying to save in a more general location...');
+    warning('Something is amiss with this save. Retrying to save in a more general location (i.e., in same folder as PicRatings_CC.m)...\n');
     try
         savefilename = sprintf('PicRatings_CC_%d-%d.mat',ID,SESS);
         save([mfilesdir filesep savefilename],'PicRating');
+        warning('Save location:  %s\n',[mfielsdir filesep savefilename]);
     catch
-        warning('STILL problems saving....Look for "PicRating.mat" and rename it PicRatings_CC_%d_%d.mat',ID,SESS);
+        warning('STILL problems saving....Look for "PicRating.mat" somewhere on the computer and rename it PicRatings_CC_%d_%d.mat\n',ID,SESS);
+        warning('File might be found in: %s\n',pwd);
         save PicRating
     end
 end
@@ -343,7 +406,7 @@ sca
 end
 
 %%
-function [ rects,mids ] = DrawRectsGrid(varargin)
+function [ rects,mids ] = DrawRectsGrid(appRval)
 %DrawRectGrid:  Builds a grid of squares with gaps in between.
 
 global wRect XCENTER
@@ -351,8 +414,12 @@ global wRect XCENTER
 %Size of image will depend on screen size. First, an area approximately 80%
 %of screen is determined. Then, images are 1/4th the side of that square
 %(minus the 3 x the gap between images.
+if appRval == 1;
+    num_rects = 9;                 %How many rects?
+elseif appRval == 2;
+    num_rects = 10;
+end
 
-num_rects = 9;                 %How many rects?
 xlen = wRect(3)*.9;           %Make area covering about 90% of vertical dimension of screen.
 gap = 10;                       %Gap size between each rect
 square_side = fix((xlen - (num_rects-1)*gap)/num_rects); %Size of rect depends on size of screen.
@@ -457,6 +524,92 @@ Screen('TextSize',window,oldSize);
 
 end
 
+function drawValues(varargin)
+
+global w KEYS COLORS rects mids
+
+num_rects = 10;  
+colors=repmat(COLORS.BLUE',1,num_rects);
+% rects=horzcat(allRects.rate1rect',allRects.rate2rect',allRects.rate3rect',allRects.rate4rect');
+
+%Needs to feed in "code" from KbCheck, to show which key was chosen.
+if nargin >= 1 && ~isempty(varargin{1})
+    response=varargin{1};
+    
+    key=find(response);
+    if length(key)>1
+        key=key(1);
+    end;
+    
+    switch key
+        
+        case {KEYS.ONE}
+            choice=1;
+        case {KEYS.TWO}
+            choice=2;
+        case {KEYS.THREE}
+            choice=3;
+        case {KEYS.FOUR}
+            choice=4;
+        case {KEYS.FIVE}
+            choice=5;
+        case {KEYS.SIX}
+            choice=6;
+        case {KEYS.SEVEN}
+            choice=7;
+        case {KEYS.EIGHT}
+            choice=8;
+        case {KEYS.NINE}
+            choice=9;
+         case {KEYS.TEN}
+            choice = 10;
+    end
+    
+    if exist('choice','var')
+        
+        
+        colors(:,choice)=COLORS.GREEN';
+        
+    end
+end
+
+
+    window=w;
+   
+
+Screen('TextFont', window, 'Arial');
+Screen('TextStyle', window, 1);
+oldSize = Screen('TextSize',window,35);
+
+% Screen('TextFont', w2, 'Arial');
+% Screen('TextStyle', w2, 1)
+% Screen('TextSize',w2,60);
+
+
+
+%draw all the squares
+Screen('FrameRect',window,colors,rects,1);
+
+
+% Screen('FrameRect',w2,colors,rects,1);
+
+
+%draw the text (1-10)
+for n = 1:num_rects;
+    if n == 1;
+        numnum = sprintf('<$%d',n);
+    elseif n == 10;
+        numnum = sprintf('$%d+',n);
+    else
+        numnum = sprintf('$%d',n);
+    end
+    CenterTextOnPoint(window,numnum,mids(1,n),mids(2,n),COLORS.BLUE);
+end
+
+
+Screen('TextSize',window,oldSize);
+
+end
 
 %%
 function [nx, ny, textbounds] = CenterTextOnPoint(win, tstring, sx, sy,color)
