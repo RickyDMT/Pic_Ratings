@@ -87,8 +87,8 @@ if exist(savefile,'file') == 2;
 end
 
 picratefolder = fullfile(mdir,'Ratings');   %XXX: Make sure ratings files are in folder called "Ratings" within same folder as SimpleExposure_CC.m
-imgdir = fullfile(mdir,'Pics');             %XXX: Adjust accordingly Make sure THIS is true too.
-% imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
+% imgdir = fullfile(mdir,'Pics');             %XXX: Adjust accordingly Make sure THIS is true too.
+ imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
 
 randopics = 0;
 
@@ -155,8 +155,8 @@ SimpExp = struct;
     pictype = [ones(STIM.H_trials,1); repmat(2,STIM.UnH_trials,1); zeros(STIM.neut_trials,1)];
 
 if COND == 1    
-    %1 = in training tasks, 0 = not in training tasks
-    trainpic = [repmat([ones(20,1); zeros(20,1)],2,1); zeros(20,1)];
+%     %1 = in training tasks, 0 = not in training tasks
+%     trainpic = [repmat([ones(20,1); zeros(20,1)],2,1); zeros(20,1)];
 
     if randopics == 1
         %Just choose some random pics
