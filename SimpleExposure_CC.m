@@ -11,7 +11,7 @@ global KEY COLORS w wRect XCENTER YCENTER PICS STIM SimpExp trial
 %This is for food exposure!
 
 prompt={'SUBJECT ID' 'Condition' 'Session' 'fMRI (1 = Yes, 0 = No)'};
-defAns={'4444' '1' '1' '0'};
+defAns={'4444' '1' '1' '1'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
@@ -29,7 +29,8 @@ KEY = struct;
 KEY.rt = KbName('SPACE');
 KEY.left = KbName('c');
 KEY.right = KbName('m');
-KEY.trigger = KbName('''"');
+KEY.trigger = KbName('''');
+% KEY.trigger = KbName('''"');
 
 
 COLORS = struct;
@@ -87,8 +88,8 @@ if exist(savefile,'file') == 2;
 end
 
 picratefolder = fullfile(mdir,'Ratings');   %XXX: Make sure ratings files are in folder called "Ratings" within same folder as SimpleExposure_CC.m
-% imgdir = fullfile(mdir,'Pics');             %XXX: Adjust accordingly Make sure THIS is true too.
- imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
+imgdir = fullfile(mdir,'MasterPics');             %XXX: Adjust accordingly Make sure THIS is true too.
+%  imgdir = '/Users/canelab/Documents/StudyTasks/MasterPics';    %for testing purposes
 
 randopics = 0;
 
@@ -270,7 +271,7 @@ end
 %you can set the font sizes and styles here
 Screen('TextFont', w, 'Arial');
 %Screen('TextStyle', w, 1);
-Screen('TextSize',w,35);
+Screen('TextSize',w,25);
 
 KbName('UnifyKeyNames');
 
@@ -286,9 +287,22 @@ imgrect_neut = [XCENTER-halfside; YCENTER-halfside; XCENTER+halfside; YCENTER+ha
 
     
 %% Initial screen
-DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,60,[],[],1.5);
+DrawFormattedText(w,'In this task, we will show you a series of images of foods. We want you to imagine you''re eating the food that is present on the screen.\n\nPress any key when you are ready to begin.','center','center',COLORS.WHITE,50,[],[],1.5);
 Screen('Flip',w);
-KbWait([],2);
+% KbWait([],2);
+FlushEvents();
+while 1
+    [pracDown, ~, pracCode] = KbCheck(); %waits for R or L index button to be pressed
+    if pracDown == 1 && any(pracCode(KEY.all))
+        break
+    end
+end
+
+
+Screen('Flip',w);
+WaitSecs(1);
+
+    
 
 %% Trigger
 
