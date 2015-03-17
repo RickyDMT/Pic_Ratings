@@ -349,7 +349,15 @@ for block = 1:STIM.blocks
         interblocktext = sprintf('That concludes Block %d.\n\nPress any key to continue to Block %d when you are ready.',block,block+1);
         DrawFormattedText(w,interblocktext,'center','center',COLORS.WHITE);
         Screen('Flip',w);
-        KbWait([],2);
+%         KbWait([],2);
+        FlushEvents();
+        while 1
+            [pracDown, ~, pracCode] = KbCheck(); %waits for R or L index button to be pressed
+            if pracDown == 1 && any(pracCode(KEY.all))
+                break
+            end
+        end
+        
     end
      
     
@@ -378,7 +386,15 @@ end
 
 DrawFormattedText(w,'That concludes this task. The assessor will be with you soon.','center','center',COLORS.WHITE);
 Screen('Flip', w);
-WaitSecs(5);
+% WaitSecs(5);
+FlushEvents();
+while 1
+    [pracDown, ~, pracCode] = KbCheck(); %waits for R or L index button to be pressed
+    if pracDown == 1 && any(pracCode(KEY.all))
+        break
+    end
+end
+
 
 sca
 
