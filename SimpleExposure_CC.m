@@ -26,11 +26,21 @@ SESS = str2double(answer{3});
 d = clock;
 
 KEY = struct;
-KEY.rt = KbName('SPACE');
-KEY.left = KbName('c');
-KEY.right = KbName('m');
-KEY.trigger = KbName('''');
-% KEY.trigger = KbName('''"');
+KEY.ONE= KbName('1!');
+KEY.TWO= KbName('2@');
+KEY.THREE= KbName('3#');
+KEY.FOUR= KbName('4$');
+KEY.FIVE= KbName('5%');
+KEY.SIX= KbName('6^');
+KEY.SEVEN= KbName('7&');
+KEY.EIGHT= KbName('8*');
+KEY.NINE= KbName('9(');
+KEY.TEN= KbName('0)');
+rangetest = cell2mat(struct2cell(KEY));
+KEY.all = rangetest;
+
+KEY.trigger = KbName('''');     %FOR PCs, UNCOMMENT THIS
+% KEY.trigger = KbName('''"');  %FOR MACs, UNCOMMENT THIS
 
 
 COLORS = struct;
@@ -386,14 +396,15 @@ end
 
 DrawFormattedText(w,'That concludes this task. The assessor will be with you soon.','center','center',COLORS.WHITE);
 Screen('Flip', w);
-% WaitSecs(5);
-FlushEvents();
-while 1
-    [pracDown, ~, pracCode] = KbCheck(); %waits for R or L index button to be pressed
-    if pracDown == 1 && any(pracCode(KEY.all))
-        break
-    end
-end
+WaitSecs(5);
+KbWait([],2);
+% FlushEvents();
+% while 1
+%     [pracDown, ~, pracCode] = KbCheck(); %waits for R or L index button to be pressed
+%     if pracDown == 1 && any(pracCode(KEY.all))
+%         break
+%     end
+% end
 
 
 sca
